@@ -1,0 +1,249 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Dancing+Script:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* RPG Alchemy / Druidic Palette */
+    --background: 36 33% 92%; /* Pergaminho claro #F3EDE3 */
+    --foreground: 150 20% 20%; /* Verde escuro para texto */
+
+    --card: 36 35% 94%; /* Pergaminho mais claro */
+    --card-foreground: 150 20% 20%;
+
+    --popover: 36 35% 94%;
+    --popover-foreground: 150 20% 20%;
+
+    --primary: 150 20% 30%; /* Verde sálvia escuro #3E5A4C */
+    --primary-foreground: 36 33% 92%;
+
+    --secondary: 36 35% 89%; /* Pergaminho médio #EFE6DA */
+    --secondary-foreground: 150 20% 25%;
+
+    --muted: 36 25% 87%;
+    --muted-foreground: 150 15% 40%;
+
+    --accent: 43 52% 57%; /* Dourado suave #C8A45A */
+    --accent-foreground: 150 20% 15%;
+
+    --destructive: 0 55% 45%;
+    --destructive-foreground: 36 33% 92%;
+
+    --border: 150 15% 75%;
+    --input: 36 25% 88%;
+    --ring: 150 20% 30%;
+
+    --radius: 0.5rem;
+
+    /* Custom Alchemy tokens */
+    --gold: 43 52% 57%;
+    --gold-light: 43 45% 72%;
+    --gold-dark: 43 55% 42%;
+    --green-deep: 150 20% 30%;
+    --green-light: 147 16% 36%;
+    --green-moss: 150 25% 25%;
+    --parchment: 36 33% 92%;
+    --parchment-dark: 36 35% 89%;
+    --parchment-aged: 36 30% 85%;
+
+    --sidebar-background: 36 35% 94%;
+    --sidebar-foreground: 150 20% 20%;
+    --sidebar-primary: 150 20% 30%;
+    --sidebar-primary-foreground: 36 33% 92%;
+    --sidebar-accent: 36 35% 90%;
+    --sidebar-accent-foreground: 150 20% 25%;
+    --sidebar-border: 150 15% 75%;
+    --sidebar-ring: 150 20% 30%;
+  }
+
+  .dark {
+    --background: 150 20% 8%;
+    --foreground: 36 30% 88%;
+
+    --card: 150 18% 10%;
+    --card-foreground: 36 30% 88%;
+
+    --popover: 150 18% 10%;
+    --popover-foreground: 36 30% 88%;
+
+    --primary: 43 52% 57%;
+    --primary-foreground: 150 20% 8%;
+
+    --secondary: 150 15% 15%;
+    --secondary-foreground: 36 30% 88%;
+
+    --muted: 150 15% 14%;
+    --muted-foreground: 36 25% 60%;
+
+    --accent: 43 50% 50%;
+    --accent-foreground: 150 20% 8%;
+
+    --destructive: 0 55% 40%;
+    --destructive-foreground: 36 30% 88%;
+
+    --border: 150 15% 18%;
+    --input: 150 15% 18%;
+    --ring: 43 52% 57%;
+
+    --sidebar-background: 150 18% 10%;
+    --sidebar-foreground: 36 30% 88%;
+    --sidebar-primary: 43 52% 57%;
+    --sidebar-primary-foreground: 150 20% 8%;
+    --sidebar-accent: 150 15% 14%;
+    --sidebar-accent-foreground: 36 30% 88%;
+    --sidebar-border: 150 15% 18%;
+    --sidebar-ring: 43 52% 57%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Crimson Text', serif;
+    /* Sutil textura de pergaminho */
+    background-image: 
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    background-blend-mode: soft-light;
+    background-size: 200px 200px;
+  }
+
+  /* Títulos em Cinzel (estilo grimório) */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Cinzel', serif;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  /* Mantém o script para "Mahoya" onde necessário */
+  .font-script {
+    font-family: 'Dancing Script', cursive;
+  }
+}
+
+@layer utilities {
+  .font-script {
+    font-family: 'Dancing Script', cursive;
+  }
+  
+  .font-serif {
+    font-family: 'Crimson Text', serif;
+  }
+
+  .font-grimoire {
+    font-family: 'Cinzel', serif;
+  }
+
+  /* Textura de pergaminho para seções */
+  .bg-parchment {
+    background-color: hsl(var(--parchment));
+    background-image: 
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    background-blend-mode: soft-light;
+    background-size: 150px 150px;
+  }
+
+  /* Brilho dourado para hover */
+  .glow-gold {
+    box-shadow: 0 0 15px hsl(var(--gold) / 0.3);
+  }
+
+  /* Estilo de carta RPG */
+  .rpg-card {
+    @apply bg-card border border-primary/30 rounded-lg;
+    box-shadow: 
+      0 2px 8px hsl(var(--green-deep) / 0.08),
+      inset 0 1px 0 hsl(var(--gold-light) / 0.2);
+    position: relative;
+  }
+
+  .rpg-card::before,
+  .rpg-card::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border: 1px solid hsl(var(--gold) / 0.5);
+  }
+
+  .rpg-card::before {
+    top: 4px;
+    left: 4px;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .rpg-card::after {
+    bottom: 4px;
+    right: 4px;
+    border-left: none;
+    border-top: none;
+  }
+
+  /* Moldura para imagens */
+  .rpg-frame {
+    @apply border-2 border-primary/40 rounded-md;
+    box-shadow: 
+      0 4px 12px hsl(var(--green-deep) / 0.15),
+      inset 0 0 0 1px hsl(var(--gold) / 0.1);
+  }
+
+  /* Divisória decorativa */
+  .divider-alchemy {
+    @apply flex items-center justify-center gap-3 my-6;
+  }
+
+  .divider-alchemy::before,
+  .divider-alchemy::after {
+    content: '';
+    @apply h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent;
+  }
+
+  /* Botão estilo selo/placa */
+  .btn-seal {
+    @apply relative overflow-hidden transition-all duration-300;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--parchment-dark)) 0%,
+      hsl(var(--parchment)) 50%,
+      hsl(var(--parchment-dark)) 100%
+    );
+    box-shadow: 
+      0 2px 4px hsl(var(--green-deep) / 0.1),
+      inset 0 1px 0 hsl(var(--gold-light) / 0.3),
+      inset 0 -1px 0 hsl(var(--green-deep) / 0.1);
+  }
+
+  .btn-seal:hover {
+    box-shadow: 
+      0 4px 12px hsl(var(--gold) / 0.25),
+      inset 0 1px 0 hsl(var(--gold-light) / 0.5),
+      inset 0 -1px 0 hsl(var(--green-deep) / 0.1);
+  }
+
+  .btn-seal:focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+}
+
+/* Animações suaves */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--gold) / 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
