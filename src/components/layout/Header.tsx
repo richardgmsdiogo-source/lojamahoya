@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, User, Menu, X, Sparkles, Shield, LogOut } from 'lucide-react';
+import { ShoppingBag, User, Menu, X, Sparkles, Shield, LogOut, Package } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/contexts/CartContext';
@@ -37,9 +37,9 @@ export const Header = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between md:h-20">
-        {/* Logo */}
+        {/* Logo - increased size */}
         <Link to="/" className="flex items-center gap-2">
-          <img src={mahoyaLogo} alt="Mahoya" className="h-12 w-auto md:h-14" />
+          <img src={mahoyaLogo} alt="Mahoya" className="h-14 w-auto md:h-16 lg:h-18" />
         </Link>
 
         {/* Desktop Navigation */}
@@ -81,17 +81,24 @@ export const Header = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to="/minha-conta" className="flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Minha Conta
+                  </Link>
+                </DropdownMenuItem>
                 {isAdmin && (
                   <>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link to="/admin" className="flex items-center gap-2">
                         <Shield className="h-4 w-4" />
                         Painel Admin
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                   </>
                 )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 text-destructive">
                   <LogOut className="h-4 w-4" />
                   Sair

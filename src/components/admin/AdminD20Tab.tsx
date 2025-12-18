@@ -1,10 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Dice6, UserPlus, Trash2, Search } from 'lucide-react';
+import { Dice6, UserPlus, Trash2, Search, CheckCircle, Clock, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface EligibleUser {
   id: string;
@@ -13,6 +25,12 @@ interface EligibleUser {
   profile: {
     name: string | null;
     email: string | null;
+  } | null;
+  roll: {
+    roll_result: number;
+    prize_code: string;
+    prize_title: string;
+    used_at: string | null;
   } | null;
 }
 
@@ -38,14 +56,15 @@ export const AdminD20Tab = () => {
     if (eligible) {
       // Fetch profiles for eligible users
       const userIds = eligible.map(e => e.user_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, name, email')
-        .in('id', userIds);
+      const [profilesRes, rollsRes] = await Promise.all([
+        supabase.from('profiles').select('id, name, email').in('id', userIds),
+        supabase.from('d20_rolls').select('user_id, roll_result, prize_code, prize_title, used_at').in('user_id', userIds),
+      ]);
 
       const enriched = eligible.map(e => ({
         ...e,
-        profile: profiles?.find(p => p.id === e.user_id) || null
+        profile: profilesRes.data?.find(p => p.id === e.user_id) || null,
+        roll: rollsRes.data?.find(r => r.user_id === e.user_id) || null,
       }));
       
       setEligibleUsers(enriched);
@@ -92,7 +111,21 @@ export const AdminD20Tab = () => {
     }
   };
 
-  const filteredUsers = allUsers.filter(u => 
+  const resetUserRoll = async (userId: string, userName: string | null) => {
+    const { error } = await supabase
+      .from('d20_rolls')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao resetar dado.', variant: 'destructive' });
+    } else {
+      toast({ title: 'Resetado', description: `Dado de ${userName || 'usuário'} foi resetado.` });
+      fetchData();
+    }
+  };
+
+  const filteredUsers = allUsers.filter(u =>
     !eligibleUsers.some(e => e.user_id === u.id) &&
     (u.email?.toLowerCase().includes(searchEmail.toLowerCase()) || 
      u.name?.toLowerCase().includes(searchEmail.toLowerCase()))
@@ -172,17 +205,60 @@ export const AdminD20Tab = () => {
                   key={eu.id}
                   className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
                 >
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-sm">{eu.profile?.name || 'Sem nome'}</p>
                     <p className="text-xs text-muted-foreground">{eu.profile?.email}</p>
+                    {eu.roll ? (
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant={eu.roll.used_at ? "secondary" : "default"} className="text-xs">
+                          🎲 {eu.roll.roll_result} - {eu.roll.prize_code}
+                        </Badge>
+                        {eu.roll.used_at ? (
+                          <Badge variant="outline" className="text-xs flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" /> Usado
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Pendente
+                          </Badge>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic mt-1">Ainda não rolou</p>
+                    )}
                   </div>
-                  <Button 
-                    variant="destructive" 
-                    size="icon"
-                    onClick={() => removeUser(eu.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    {eu.roll && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="icon" title="Resetar dado">
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Resetar dado de {eu.profile?.name || 'usuário'}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              O resultado atual (🎲 {eu.roll.roll_result} - {eu.roll.prize_code}) será apagado e o cliente poderá rolar novamente.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => resetUserRoll(eu.user_id, eu.profile?.name)}>
+                              Resetar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                    <Button 
+                      variant="destructive" 
+                      size="icon"
+                      onClick={() => removeUser(eu.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

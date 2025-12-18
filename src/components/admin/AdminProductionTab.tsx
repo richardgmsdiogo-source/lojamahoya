@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Factory, Play, RotateCcw, Search, AlertTriangle, Check, Trash2 } from 'lucide-react';
+import { Factory, Play, RotateCcw, Search, AlertTriangle, Check, Trash2, Clock, CheckCircle, XCircle, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -63,6 +64,17 @@ interface SimulationResult {
   unitCost: number;
 }
 
+type ProductionStatus = 'produzindo' | 'concluido' | 'perda' | 'estornado';
+
+const STATUS_CONFIG: Record<ProductionStatus, { label: string; icon: React.ComponentType<any>; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  produzindo: { label: 'Produzindo', icon: Clock, variant: 'outline' },
+  concluido: { label: 'Concluído', icon: CheckCircle, variant: 'default' },
+  perda: { label: 'Perda', icon: XCircle, variant: 'destructive' },
+  estornado: { label: 'Estornado', icon: Ban, variant: 'secondary' }
+};
+
+type RpcResult = { success: boolean; error?: string; batch_id?: string; new_status?: string; total_cost?: number; unit_cost?: number };
+
 export const AdminProductionTab = () => {
   const [batches, setBatches] = useState<ProductionBatch[]>([]);
   const [activeRecipes, setActiveRecipes] = useState<RecipeWithItems[]>([]);
@@ -73,11 +85,16 @@ export const AdminProductionTab = () => {
   const [produceData, setProduceData] = useState({
     recipe_id: '',
     quantity: '',
-    notes: ''
+    notes: '',
+    initial_status: 'produzindo' as ProductionStatus
   });
 
   const [simulation, setSimulation] = useState<SimulationResult | null>(null);
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Confirmation dialogs state
+  const [statusChangeDialog, setStatusChangeDialog] = useState<{ batch: ProductionBatch; newStatus: ProductionStatus } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<ProductionBatch | null>(null);
 
   const { toast } = useToast();
 
@@ -129,7 +146,7 @@ export const AdminProductionTab = () => {
   }, []);
 
   const resetProduceForm = () => {
-    setProduceData({ recipe_id: '', quantity: '', notes: '' });
+    setProduceData({ recipe_id: '', quantity: '', notes: '', initial_status: 'produzindo' });
     setSimulation(null);
   };
 
@@ -153,8 +170,6 @@ export const AdminProductionTab = () => {
       setSimulation(null);
       return;
     }
-
-    setIsSimulating(true);
 
     const items: SimulationResult['items'] = recipe.recipe_items.map(item => {
       const material = item.raw_materials;
@@ -190,8 +205,6 @@ export const AdminProductionTab = () => {
       totalCost,
       unitCost: totalCost / qty
     });
-
-    setIsSimulating(false);
   };
 
   useEffect(() => {
@@ -205,144 +218,99 @@ export const AdminProductionTab = () => {
   const handleProduce = async () => {
     if (!simulation || !simulation.valid) return;
 
-    const recipe = activeRecipes.find(r => r.id === produceData.recipe_id);
-    if (!recipe) return;
-
+    setIsSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
     const qty = parseInt(produceData.quantity);
 
-    // Create production batch
-    const { data: batch, error: batchError } = await supabase
-      .from('production_batches')
-      .insert({
-        product_id: recipe.product_id,
-        recipe_id: recipe.id,
-        quantity_produced: qty,
-        total_cost: simulation.totalCost,
-        unit_cost: simulation.unitCost,
-        notes: produceData.notes || null,
-        produced_by: user?.id,
-        status: 'completed'
-      })
-      .select()
-      .single();
+    // Use atomic RPC function
+    const { data, error } = await supabase.rpc('create_production_batch', {
+      p_recipe_id: produceData.recipe_id,
+      p_quantity: qty,
+      p_notes: produceData.notes || null,
+      p_user_id: user?.id || null,
+      p_initial_status: produceData.initial_status
+    });
 
-    if (batchError || !batch) {
-      toast({ title: 'Erro', description: 'Erro ao criar lote de produção.', variant: 'destructive' });
+    setIsSubmitting(false);
+    const result = data as RpcResult | null;
+
+    if (error || !result?.success) {
+      toast({ 
+        title: 'Erro', 
+        description: result?.error || error?.message || 'Erro ao criar produção.', 
+        variant: 'destructive' 
+      });
       return;
     }
 
-    // Create batch items and update stock
-    for (const item of simulation.items) {
-      // Insert batch item
-      await supabase.from('production_batch_items').insert({
-        batch_id: batch.id,
-        raw_material_id: item.raw_material_id,
-        quantity_consumed: item.required,
-        unit: item.unit as any,
-        cost_per_unit: item.cost_per_unit,
-        total_cost: item.total_cost
-      });
-
-      // Update stock via RPC
-      await supabase.rpc('update_raw_material_stock', {
-        p_raw_material_id: item.raw_material_id,
-        p_quantity: item.required,
-        p_movement_type: 'baixa_producao' as any,
-        p_reference_id: batch.id,
-        p_reference_type: 'production_batch',
-        p_notes: `Produção de ${qty} unidades - Lote ${batch.id.slice(0, 8)}`,
-        p_user_id: user?.id || null
-      });
-    }
-
-    // Update finished goods stock
-    const { data: existingStock } = await supabase
-      .from('finished_goods_stock')
-      .select('*')
-      .eq('product_id', recipe.product_id)
-      .maybeSingle();
-
-    if (existingStock) {
-      await supabase
-        .from('finished_goods_stock')
-        .update({ current_quantity: existingStock.current_quantity + qty })
-        .eq('id', existingStock.id);
-    } else {
-      await supabase
-        .from('finished_goods_stock')
-        .insert({ product_id: recipe.product_id, current_quantity: qty });
-    }
-
-    toast({ title: 'Produção Registrada', description: `${qty} unidades produzidas com sucesso.` });
+    toast({ 
+      title: 'Produção Registrada', 
+      description: `${qty} unidades em ${STATUS_CONFIG[produceData.initial_status].label.toLowerCase()}.` 
+    });
     setIsProduceOpen(false);
     resetProduceForm();
     fetchData();
   };
 
-  const reverseBatch = async (batch: ProductionBatch) => {
-    if (batch.status === 'reversed') {
-      toast({ title: 'Erro', description: 'Este lote já foi estornado.', variant: 'destructive' });
+  const handleStatusChange = async (batch: ProductionBatch, newStatus: ProductionStatus) => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase.rpc('change_production_status', {
+      p_batch_id: batch.id,
+      p_new_status: newStatus,
+      p_user_id: user?.id || null
+    });
+
+    const result = data as RpcResult | null;
+
+    if (error || !result?.success) {
+      toast({ 
+        title: 'Erro', 
+        description: result?.error || error?.message || 'Erro ao alterar status.', 
+        variant: 'destructive' 
+      });
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-
-    // Reverse stock movements
-    for (const item of batch.production_batch_items) {
-      await supabase.rpc('update_raw_material_stock', {
-        p_raw_material_id: item.raw_material_id,
-        p_quantity: item.quantity_consumed,
-        p_movement_type: 'estorno' as any,
-        p_reference_id: batch.id,
-        p_reference_type: 'production_batch_reversal',
-        p_notes: `Estorno do lote ${batch.id.slice(0, 8)}`,
-        p_user_id: user?.id || null
-      });
-    }
-
-    // Update finished goods stock
-    const { data: existingStock } = await supabase
-      .from('finished_goods_stock')
-      .select('*')
-      .eq('product_id', batch.product_id)
-      .maybeSingle();
-
-    if (existingStock) {
-      await supabase
-        .from('finished_goods_stock')
-        .update({ 
-          current_quantity: Math.max(0, existingStock.current_quantity - batch.quantity_produced) 
-        })
-        .eq('id', existingStock.id);
-    }
-
-    // Mark batch as reversed
-    await supabase
-      .from('production_batches')
-      .update({ 
-        status: 'reversed',
-        reversed_at: new Date().toISOString(),
-        reversed_by: user?.id
-      })
-      .eq('id', batch.id);
-
-    toast({ title: 'Estornado', description: 'Lote estornado com sucesso.' });
+    toast({ title: 'Status Atualizado', description: `Lote alterado para ${STATUS_CONFIG[newStatus].label}.` });
+    setStatusChangeDialog(null);
     fetchData();
   };
 
-  const deleteBatch = async (batch: ProductionBatch) => {
-    // First delete batch items
-    await supabase.from('production_batch_items').delete().eq('batch_id', batch.id);
-    
-    // Then delete the batch
-    const { error } = await supabase.from('production_batches').delete().eq('id', batch.id);
-    
-    if (error) {
-      toast({ title: 'Erro', description: 'Erro ao excluir lote.', variant: 'destructive' });
-    } else {
-      toast({ title: 'Excluído', description: 'Lote excluído permanentemente.' });
-      fetchData();
+  const handleDelete = async (batch: ProductionBatch) => {
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase.rpc('delete_production_batch', {
+      p_batch_id: batch.id,
+      p_user_id: user?.id || null
+    });
+
+    const result = data as RpcResult | null;
+
+    if (error || !result?.success) {
+      toast({ 
+        title: 'Erro', 
+        description: result?.error || error?.message || 'Erro ao excluir lote.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    toast({ title: 'Excluído', description: 'Lote excluído com sucesso.' });
+    setDeleteDialog(null);
+    fetchData();
+  };
+
+  const getAvailableStatusTransitions = (currentStatus: string): ProductionStatus[] => {
+    switch (currentStatus) {
+      case 'produzindo':
+        return ['concluido', 'perda', 'estornado'];
+      case 'concluido':
+        return ['perda', 'estornado'];
+      case 'perda':
+        return ['estornado'];
+      default:
+        return [];
     }
   };
 
@@ -403,6 +371,30 @@ export const AdminProductionTab = () => {
                   onChange={(e) => setProduceData({ ...produceData, quantity: e.target.value })}
                   placeholder="Ex: 10"
                 />
+              </div>
+
+              <div>
+                <Label>Status Inicial</Label>
+                <Select 
+                  value={produceData.initial_status} 
+                  onValueChange={(v: ProductionStatus) => setProduceData({ ...produceData, initial_status: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="produzindo">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" /> Produzindo (reserva estoque)
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="concluido">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4" /> Concluído (adiciona ao estoque final)
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -484,10 +476,10 @@ export const AdminProductionTab = () => {
               <Button 
                 onClick={handleProduce} 
                 className="w-full" 
-                disabled={!simulation?.valid}
+                disabled={!simulation?.valid || isSubmitting}
               >
                 <Play className="h-4 w-4 mr-2" />
-                Confirmar Produção
+                {isSubmitting ? 'Processando...' : 'Confirmar Produção'}
               </Button>
             </div>
           </DialogContent>
@@ -508,84 +500,192 @@ export const AdminProductionTab = () => {
             </p>
           ) : (
             <div className="space-y-3">
-              {filteredBatches.map((batch) => (
-                <div 
-                  key={batch.id}
-                  className={`p-4 rounded-lg ${
-                    batch.status === 'reversed' 
-                      ? 'bg-muted/30 opacity-60' 
-                      : 'bg-muted/50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{batch.products?.name}</p>
-                        <Badge variant={batch.status === 'reversed' ? 'secondary' : 'default'}>
-                          {batch.status === 'reversed' ? 'Estornado' : 'Concluído'}
-                        </Badge>
+              {filteredBatches.map((batch) => {
+                const status = (batch.status as ProductionStatus) || 'concluido';
+                const StatusIcon = STATUS_CONFIG[status]?.icon || CheckCircle;
+                const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.concluido;
+                const availableTransitions = getAvailableStatusTransitions(status);
+
+                return (
+                  <div 
+                    key={batch.id}
+                    className={`p-4 rounded-lg ${
+                      status === 'estornado' || status === 'perda'
+                        ? 'bg-muted/30 opacity-70' 
+                        : status === 'produzindo'
+                        ? 'bg-amber-500/10 border border-amber-500/20'
+                        : 'bg-muted/50'
+                    }`}
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium">{batch.products?.name}</p>
+                          <Badge variant={statusConfig.variant} className="gap-1">
+                            <StatusIcon className="h-3 w-3" />
+                            {statusConfig.label}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(batch.created_at || '').toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                          {' | '}Receita v{batch.recipes?.version}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          ID: {batch.id.slice(0, 8)}
+                        </p>
+                        {batch.notes && (
+                          <p className="text-xs text-muted-foreground italic">{batch.notes}</p>
+                        )}
+                        <div className="text-xs text-muted-foreground mt-2">
+                          Consumo: {batch.production_batch_items.map((item, i) => (
+                            <span key={i}>
+                              {item.raw_materials?.name}: {formatQuantityBR(item.quantity_consumed, item.unit)} {item.unit}
+                              {i < batch.production_batch_items.length - 1 ? ' | ' : ''}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(batch.created_at || '').toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                        {' | '}Receita v{batch.recipes?.version}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        ID: {batch.id.slice(0, 8)}
-                      </p>
-                      {batch.notes && (
-                        <p className="text-xs text-muted-foreground italic">{batch.notes}</p>
-                      )}
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Consumo: {batch.production_batch_items.map((item, i) => (
-                          <span key={i}>
-                            {item.raw_materials?.name}: {formatQuantityBR(item.quantity_consumed, item.unit)} {item.unit}
-                            {i < batch.production_batch_items.length - 1 ? ' | ' : ''}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-lg">{batch.quantity_produced} un.</p>
-                      <p className="text-sm text-muted-foreground">
-                        Total: {formatCurrencyBRL(batch.total_cost)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Unitário: {formatCurrencyBRL(batch.unit_cost)}
-                      </p>
-                      {batch.status === 'completed' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-2"
-                          onClick={() => reverseBatch(batch)}
+
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="text-right">
+                          <p className="font-bold text-lg">{batch.quantity_produced} un.</p>
+                          <p className="text-sm text-muted-foreground">
+                            Total: {formatCurrencyBRL(batch.total_cost)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Unitário: {formatCurrencyBRL(batch.unit_cost)}
+                          </p>
+                        </div>
+
+                        {/* Status Actions */}
+                        {availableTransitions.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {availableTransitions.map((newStatus) => {
+                              const config = STATUS_CONFIG[newStatus];
+                              const Icon = config.icon;
+                              return (
+                                <Button
+                                  key={newStatus}
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setStatusChangeDialog({ batch, newStatus })}
+                                  className="text-xs"
+                                >
+                                  <Icon className="h-3 w-3 mr-1" />
+                                  {config.label}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Delete Button */}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => setDeleteDialog(batch)}
                         >
-                          <RotateCcw className="h-4 w-4 mr-1" />
-                          Estornar
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Excluir
                         </Button>
-                      )}
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        className="mt-2"
-                        onClick={() => deleteBatch(batch)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Excluir
-                      </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Status Change Confirmation Dialog */}
+      <AlertDialog open={!!statusChangeDialog} onOpenChange={() => setStatusChangeDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Alteração de Status</AlertDialogTitle>
+            <AlertDialogDescription>
+              {statusChangeDialog && (
+                <>
+                  Deseja alterar o lote <strong>{statusChangeDialog.batch.products?.name}</strong> para{' '}
+                  <strong>{STATUS_CONFIG[statusChangeDialog.newStatus].label}</strong>?
+                  <br /><br />
+                  {statusChangeDialog.newStatus === 'estornado' && (
+                    <span className="text-amber-600">
+                      Isso irá devolver todos os insumos ao estoque.
+                    </span>
+                  )}
+                  {statusChangeDialog.newStatus === 'perda' && (
+                    <span className="text-destructive">
+                      Os insumos consumidos NÃO serão devolvidos ao estoque.
+                    </span>
+                  )}
+                  {statusChangeDialog.newStatus === 'concluido' && (
+                    <span className="text-green-600">
+                      O produto será adicionado ao estoque de produtos acabados.
+                    </span>
+                  )}
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => statusChangeDialog && handleStatusChange(statusChangeDialog.batch, statusChangeDialog.newStatus)}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteDialog} onOpenChange={() => setDeleteDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Lote de Produção</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteDialog && (
+                <>
+                  Tem certeza que deseja excluir permanentemente o lote{' '}
+                  <strong>{deleteDialog.products?.name}</strong> ({deleteDialog.quantity_produced} unidades)?
+                  <br /><br />
+                  {deleteDialog.status === 'produzindo' && (
+                    <span className="text-amber-600">
+                      Os insumos reservados serão devolvidos ao estoque.
+                    </span>
+                  )}
+                  {deleteDialog.status === 'concluido' && (
+                    <span className="text-destructive">
+                      O estoque de produtos acabados será ajustado. Considere usar "Estornar" ao invés de excluir.
+                    </span>
+                  )}
+                  {(deleteDialog.status === 'perda' || deleteDialog.status === 'estornado') && (
+                    <span className="text-muted-foreground">
+                      Este registro será removido permanentemente do histórico.
+                    </span>
+                  )}
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteDialog && handleDelete(deleteDialog)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir Permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

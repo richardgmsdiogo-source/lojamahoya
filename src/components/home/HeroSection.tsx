@@ -5,7 +5,7 @@ import mahoyaLogo from '@/assets/mahoya-logo.png';
 
 export const HeroSection = () => {
   return (
-    <section className="relative overflow-hidden py-16 md:py-24 lg:py-32">
+    <section className="relative overflow-hidden py-12 md:py-16 lg:py-20">
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-20 left-10 opacity-20">
@@ -24,29 +24,32 @@ export const HeroSection = () => {
 
       <div className="container relative">
         <div className="mx-auto max-w-3xl text-center">
+          {/* Logo - increased size */}
           <img 
             src={mahoyaLogo} 
             alt="Mahoya - Magia Feita a Dois" 
-            className="mx-auto mb-8 h-40 w-auto md:h-56 animate-fade-in"
+            className="mx-auto mb-6 h-48 w-auto md:h-64 lg:h-72 animate-fade-in object-contain"
           />
           
-          <h1 className="font-script text-4xl md:text-5xl lg:text-6xl text-primary mb-4 animate-fade-in">
+          {/* Main heading - reduced letter-spacing and line-height */}
+          <h1 className="font-script text-3xl md:text-4xl lg:text-5xl text-primary mb-3 animate-fade-in tracking-tight leading-tight">
             Magia feita a dois em forma de aroma
           </h1>
           
-          <p className="font-serif text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto leading-relaxed animate-fade-in">
+          {/* Subtitle - reduced spacing and size */}
+          <p className="font-serif text-base md:text-lg text-muted-foreground mb-6 max-w-xl mx-auto leading-normal tracking-normal animate-fade-in">
             Descubra nossa coleção artesanal de aromatizantes, velas e itens de bem-estar. 
-            Cada produto é pensado para criar momentos especiais e inesquecíveis.
+            Cada produto é pensado para criar momentos especiais.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in">
-            <Button asChild size="lg" className="font-serif text-base">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in">
+            <Button asChild size="lg" className="font-serif text-sm">
               <Link to="/catalogo">
                 <Leaf className="mr-2 h-4 w-4" />
                 Ver Coleção
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="font-serif text-base border-accent text-accent hover:bg-accent hover:text-accent-foreground">
+            <Button asChild variant="outline" size="lg" className="font-serif text-sm border-accent text-accent hover:bg-accent hover:text-accent-foreground">
               <Link to="/auth">
                 <Sparkles className="mr-2 h-4 w-4" />
                 Entrar / Cadastrar

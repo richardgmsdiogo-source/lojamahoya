@@ -10,6 +10,7 @@ import Catalogo from "./pages/Catalogo";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import Pedido from "./pages/Pedido";
+import MinhaConta from "./pages/MinhaConta";
 import FAQ from "./pages/FAQ";
 import Contato from "./pages/Contato";
 import Sobre from "./pages/Sobre";
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin/*" element={<Admin />} />
               <Route path="/pedido" element={<Pedido />} />
+              <Route path="/minha-conta" element={<MinhaConta />} />
               <Route path="/faq" element={<FAQ />} />
               <Route path="/contato" element={<Contato />} />
               <Route path="/sobre" element={<Sobre />} />

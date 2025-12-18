@@ -8,7 +8,14 @@ import {
   Dice6, 
   Tag,
   ChevronLeft,
-  Menu
+  Menu,
+  PackageCheck,
+  Flower2,
+  ClipboardList,
+  Users,
+  DollarSign,
+  Building2,
+  Receipt
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -16,11 +23,18 @@ import { useState } from 'react';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
+  { icon: ClipboardList, label: 'Pedidos', path: '/admin/pedidos' },
+  { icon: Users, label: 'Clientes', path: '/admin/clientes' },
+  { icon: DollarSign, label: 'Financeiro', path: '/admin/financeiro' },
+  { icon: Receipt, label: 'Despesas', path: '/admin/despesas' },
+  { icon: Building2, label: 'Imobilizado', path: '/admin/imobilizado' },
   { icon: Package2, label: 'Matéria-prima', path: '/admin/materias-primas' },
   { icon: ShoppingBag, label: 'Produtos', path: '/admin/produtos' },
   { icon: FileText, label: 'Receitas', path: '/admin/receitas' },
   { icon: Factory, label: 'Produção', path: '/admin/producao' },
+  { icon: PackageCheck, label: 'Estoque & Preços', path: '/admin/estoque' },
   { icon: Tag, label: 'Categorias', path: '/admin/categorias' },
+  { icon: Flower2, label: 'Famílias Olfativas', path: '/admin/familias-olfativas' },
   { icon: Dice6, label: 'D20', path: '/admin/d20' },
 ];
 

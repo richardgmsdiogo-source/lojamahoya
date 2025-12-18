@@ -20,6 +20,7 @@ interface Product {
   price: number;
   original_price: number | null;
   category_id: string | null;
+  scent_family_id: string | null;
   image_url: string | null;
   badge: string | null;
   benefits: string[] | null;
@@ -31,9 +32,15 @@ interface Category {
   name: string;
 }
 
+interface ScentFamily {
+  id: string;
+  name: string;
+}
+
 export const AdminProductsTab = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [scentFamilies, setScentFamilies] = useState<ScentFamily[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -44,6 +51,7 @@ export const AdminProductsTab = () => {
     price: '',
     original_price: '',
     category_id: '',
+    scent_family_id: '',
     image_url: '',
     badge: '',
     benefits: '',
@@ -53,12 +61,14 @@ export const AdminProductsTab = () => {
 
   const fetchData = async () => {
     setIsLoading(true);
-    const [{ data: prods }, { data: cats }] = await Promise.all([
+    const [{ data: prods }, { data: cats }, { data: scents }] = await Promise.all([
       supabase.from('products').select('*').order('name'),
-      supabase.from('categories').select('id, name').order('name')
+      supabase.from('categories').select('id, name').order('name'),
+      supabase.from('scent_families').select('id, name').order('name')
     ]);
     setProducts(prods || []);
     setCategories(cats || []);
+    setScentFamilies(scents || []);
     setIsLoading(false);
   };
 
@@ -83,6 +93,7 @@ export const AdminProductsTab = () => {
       price: '',
       original_price: '',
       category_id: '',
+      scent_family_id: '',
       image_url: '',
       badge: '',
       benefits: '',
@@ -100,6 +111,7 @@ export const AdminProductsTab = () => {
       price: prod.price.toString(),
       original_price: prod.original_price?.toString() || '',
       category_id: prod.category_id || '',
+      scent_family_id: prod.scent_family_id || '',
       image_url: prod.image_url || '',
       badge: prod.badge || '',
       benefits: prod.benefits?.join(', ') || '',
@@ -123,6 +135,7 @@ export const AdminProductsTab = () => {
       price: parseFloat(formData.price),
       original_price: formData.original_price ? parseFloat(formData.original_price) : null,
       category_id: formData.category_id || null,
+      scent_family_id: formData.scent_family_id || null,
       image_url: formData.image_url || null,
       badge: formData.badge || null,
       benefits,
@@ -270,6 +283,23 @@ export const AdminProductsTab = () => {
                   <SelectContent>
                     {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+              </Select>
+              </div>
+
+              <div>
+                <Label>Família Olfativa</Label>
+                <Select 
+                  value={formData.scent_family_id} 
+                  onValueChange={(v) => setFormData({ ...formData, scent_family_id: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma família olfativa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {scentFamilies.map((scent) => (
+                      <SelectItem key={scent.id} value={scent.id}>{scent.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
