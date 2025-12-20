@@ -63,8 +63,8 @@ type RecipeWithItems = {
     raw_materials: {
       id: string;
       name: string;
-      current_quantity: number; // já em unidade base (ml/g/un) no seu sistema
-      avg_cost_per_unit: number | null; // ✅ custo médio correto
+      current_quantity: number;
+      cost_per_unit: number | null;
       unit: MeasurementUnit;
     } | null;
   }>;
@@ -148,7 +148,7 @@ export const AdminProductionTab = () => {
           reversed_at,
           reversed_by,
           created_at,
-          status_new,
+          status,
           products(name),
           recipes(version),
           production_batch_items(
@@ -182,7 +182,7 @@ export const AdminProductionTab = () => {
               id,
               name,
               current_quantity,
-              avg_cost_per_unit,
+              cost_per_unit,
               unit
             )
           )
@@ -225,7 +225,7 @@ export const AdminProductionTab = () => {
       const mat = it.raw_materials;
       if (!mat) return acc;
       const requiredBase = toBaseQty(safeNum(it.quantity), it.unit);
-      const avg = safeNum(mat.avg_cost_per_unit);
+      const avg = safeNum(mat.cost_per_unit);
       return acc + requiredBase * avg;
     }, 0);
 
@@ -255,9 +255,9 @@ export const AdminProductionTab = () => {
 
         const availableBase = safeNum(mat.current_quantity);
 
-        // ✅ custo médio correto
-        const avgCostPerUnit = safeNum(mat.avg_cost_per_unit);
-        const totalCost = totalRequiredBase * avgCostPerUnit;
+        // ✅ custo correto
+        const costPerUnit = safeNum(mat.cost_per_unit);
+        const totalCost = totalRequiredBase * costPerUnit;
 
         const sufficient = availableBase >= totalRequiredBase;
         const balanceAfter = availableBase - totalRequiredBase;
@@ -268,11 +268,11 @@ export const AdminProductionTab = () => {
           required: totalRequiredBase,
           available: availableBase,
           unit: baseUnitLabel(mat.unit),
-          cost_per_unit: avgCostPerUnit,
+          cost_per_unit: costPerUnit,
           total_cost: totalCost,
           sufficient,
           balance_after: balanceAfter,
-          avg_is_zero: avgCostPerUnit <= 0
+          avg_is_zero: costPerUnit <= 0
         };
       })
       .filter(Boolean) as SimulationResult['items'];
@@ -594,7 +594,7 @@ export const AdminProductionTab = () => {
           ) : (
             <div className="space-y-3">
               {filteredBatches.map((batch) => {
-                const status = (((batch as any).status as ProductionStatus) || ((batch as any).status_new as ProductionStatus) || 'produzindo');
+                const status = (batch.status as ProductionStatus) || 'produzindo';
                 const StatusIcon = STATUS_CONFIG[status]?.icon || CheckCircle;
                 const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.concluido;
                 const availableTransitions = getAvailableStatusTransitions(status);

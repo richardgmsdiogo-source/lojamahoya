@@ -149,7 +149,9 @@ export const AdminOrdersTab = () => {
     if (!selectedOrder) return;
 
     const previousStatus = selectedOrder.status;
+    const previousPaymentStatus = selectedOrder.payment_status;
     const newStatus = editForm.status;
+    const newPaymentStatus = editForm.payment_status;
 
     const { error } = await supabase
       .from('orders')
@@ -165,6 +167,33 @@ export const AdminOrdersTab = () => {
     if (error) {
       toast({ title: 'Erro ao atualizar pedido', variant: 'destructive' });
       return;
+    }
+
+    // Sincronizar status do pagamento com Contas a Receber
+    if (newPaymentStatus !== previousPaymentStatus) {
+      // Buscar o título vinculado a este pedido
+      const { data: invoiceData } = await supabase
+        .from('ar_invoices')
+        .select('id')
+        .eq('order_id', selectedOrder.id)
+        .single();
+
+      if (invoiceData) {
+        const arStatus = newPaymentStatus === 'pago' ? 'pago' : 
+                         newPaymentStatus === 'cancelado' ? 'cancelado' : 'aberto';
+        
+        // Atualizar status do título
+        await supabase
+          .from('ar_invoices')
+          .update({ status: arStatus })
+          .eq('id', invoiceData.id);
+
+        // Atualizar status das parcelas
+        await supabase
+          .from('ar_installments')
+          .update({ status: arStatus === 'pago' ? 'pago' : arStatus === 'cancelado' ? 'cancelado' : 'aberto' })
+          .eq('invoice_id', invoiceData.id);
+      }
     }
 
     // Dar XP ao cliente quando o pedido é marcado como entregue

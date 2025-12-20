@@ -70,7 +70,7 @@ export const AdminCategoriesTab = () => {
       return;
     }
 
-    setCategories(data || []);
+    setCategories((data || []) as Category[]);
     setIsLoading(false);
   }
 

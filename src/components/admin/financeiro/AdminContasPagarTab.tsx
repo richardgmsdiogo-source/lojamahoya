@@ -58,7 +58,7 @@ type Bill = {
   description: string;
   category: string | null;
   issue_date: string; // date
-  total_amount: string; // numeric string do supabase
+  total_amount: number; // numeric from supabase
   status: BillStatus;
   default_payment_method_id: string | null;
   notes: string | null;
@@ -72,18 +72,18 @@ type InstallmentView = {
   bill_id: string;
   installment_no: number;
   due_date: string; // date
-  amount: string; // numeric
+  amount: number; // numeric
   status: InstallmentStatus;
   created_at: string;
-  paid_amount: string; // numeric
-  open_amount: string; // numeric
+  paid_amount: number; // numeric
+  open_amount: number; // numeric
 };
 
 type Payment = {
   id: string;
   installment_id: string;
   paid_at: string;
-  amount: string;
+  amount: number;
   payment_method_id: string | null;
   reference: string | null;
   notes: string | null;
@@ -158,18 +158,18 @@ export const AdminContasPagarTab = () => {
   const vendorsQ = useQuery({
     queryKey: ["ap-vendors"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ap_vendors").select("*").order("name");
+      const { data, error } = await supabase.from("ap_vendors" as any).select("*").order("name");
       if (error) throw error;
-      return (data || []) as Vendor[];
+      return (data || []) as unknown as Vendor[];
     },
   });
 
   const methodsQ = useQuery({
     queryKey: ["ap-methods"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ap_payment_methods").select("*").order("name");
+      const { data, error } = await supabase.from("ap_payment_methods" as any).select("*").order("name");
       if (error) throw error;
-      return (data || []) as PaymentMethod[];
+      return (data || []) as unknown as PaymentMethod[];
     },
   });
 
@@ -177,7 +177,7 @@ export const AdminContasPagarTab = () => {
     queryKey: ["ap-bills"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ap_bills")
+        .from("ap_bills" as any)
         .select(`
           *,
           ap_vendors(name),
@@ -186,7 +186,7 @@ export const AdminContasPagarTab = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []) as Bill[];
+      return (data || []) as unknown as Bill[];
     },
   });
 
@@ -194,12 +194,12 @@ export const AdminContasPagarTab = () => {
     queryKey: ["ap-installments-view"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ap_installments_view")
+        .from("ap_installments_view" as any)
         .select("*")
         .order("due_date", { ascending: true });
 
       if (error) throw error;
-      return (data || []) as InstallmentView[];
+      return (data || []) as unknown as InstallmentView[];
     },
   });
 
@@ -207,7 +207,7 @@ export const AdminContasPagarTab = () => {
     queryKey: ["ap-payments"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ap_payments")
+        .from("ap_payments" as any)
         .select(`
           *,
           ap_payment_methods(name)
@@ -215,7 +215,7 @@ export const AdminContasPagarTab = () => {
         .order("paid_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []) as Payment[];
+      return (data || []) as unknown as Payment[];
     },
   });
 
@@ -300,7 +300,7 @@ export const AdminContasPagarTab = () => {
       return;
     }
 
-    const { error } = await supabase.from("ap_vendors").insert({
+    const { error } = await supabase.from("ap_vendors" as any).insert({
       name: vendorForm.name.trim(),
       document: vendorForm.document.trim() || null,
       email: vendorForm.email.trim() || null,
@@ -325,7 +325,7 @@ export const AdminContasPagarTab = () => {
       return;
     }
 
-    const { error } = await supabase.from("ap_payment_methods").insert({
+    const { error } = await supabase.from("ap_payment_methods" as any).insert({
       name: methodForm.name.trim(),
       type: methodForm.type,
     });
@@ -367,8 +367,8 @@ export const AdminContasPagarTab = () => {
     const pmId = billForm.default_payment_method_id === "none" ? null : billForm.default_payment_method_id;
 
     // 1) cria o título
-    const { data: bill, error: billErr } = await supabase
-      .from("ap_bills")
+    const { data: billData, error: billErr } = await supabase
+      .from("ap_bills" as any)
       .insert({
         vendor_id: vendorId,
         description: billForm.description.trim(),
@@ -381,6 +381,8 @@ export const AdminContasPagarTab = () => {
       })
       .select("*")
       .single();
+    
+    const bill = billData as unknown as { id: string } | null;
 
     if (billErr || !bill) {
       toast({ title: "Erro", description: billErr?.message || "Falha ao criar título.", variant: "destructive" });
@@ -406,7 +408,7 @@ export const AdminContasPagarTab = () => {
       };
     });
 
-    const { error: instErr } = await supabase.from("ap_installments").insert(installmentsPayload);
+    const { error: instErr } = await supabase.from("ap_installments" as any).insert(installmentsPayload);
 
     if (instErr) {
       toast({
@@ -447,7 +449,7 @@ export const AdminContasPagarTab = () => {
     if (open <= 0 && inst.length > 0) status = "pago";
     else if (paid > 0 && open > 0) status = "parcial";
 
-    const { error } = await supabase.from("ap_bills").update({ status }).eq("id", billId);
+    const { error } = await supabase.from("ap_bills" as any).update({ status }).eq("id", billId);
     if (error) {
       // não trava UI por isso, só loga
       console.error("recomputeBillStatus", error);
@@ -465,7 +467,7 @@ export const AdminContasPagarTab = () => {
       return;
     }
 
-    const { error } = await supabase.from("ap_payments").insert({
+    const { error } = await supabase.from("ap_payments" as any).insert({
       installment_id: openPay.installment.id,
       amount: Number(amount.toFixed(2)),
       paid_at: payForm.paid_at ? new Date(payForm.paid_at + "T12:00:00").toISOString() : new Date().toISOString(),
@@ -490,14 +492,14 @@ export const AdminContasPagarTab = () => {
 
   const cancelBill = async (bill: Bill) => {
     // cancela o título e as parcelas em aberto
-    const { error: billErr } = await supabase.from("ap_bills").update({ status: "cancelado" }).eq("id", bill.id);
+    const { error: billErr } = await supabase.from("ap_bills" as any).update({ status: "cancelado" }).eq("id", bill.id);
     if (billErr) {
       toast({ title: "Erro", description: billErr.message, variant: "destructive" });
       return;
     }
 
     const { error: instErr } = await supabase
-      .from("ap_installments")
+      .from("ap_installments" as any)
       .update({ status: "cancelado" })
       .eq("bill_id", bill.id);
 

@@ -36,7 +36,7 @@ export const AdminTestimonialsTab = () => {
       return;
     }
 
-    const rows = (data || []) as TestimonialRow[];
+    const rows = (data || []) as unknown as TestimonialRow[];
 
     // opcional: puxar profiles (nome/email) pra facilitar
     const userIds = rows.map(r => r.user_id);

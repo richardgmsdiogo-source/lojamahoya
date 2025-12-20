@@ -19,6 +19,7 @@ import { AdminCustomersTab } from "@/components/admin/AdminCustomersTab";
 import { AdminImobilizadoTab } from "@/components/admin/AdminImobilizadoTab";
 import { AdminDespesasTab } from "@/components/admin/AdminDespesasTab";
 import { AdminTestimonialsTab } from "@/components/admin/AdminTestimonialsTab";
+import { AdminInternalOrdersTab } from "@/components/admin/AdminInternalOrdersTab";
 
 // ✅ novas páginas do financeiro
 import { AdminFinanceiroLayout } from "@/components/admin/financeiro/AdminFinanceiroLayout";
@@ -55,6 +56,7 @@ const Admin = () => {
           <Route index element={<AdminDashboard />} />
 
           <Route path="pedidos" element={<AdminOrdersTab />} />
+          <Route path="encomendas" element={<AdminInternalOrdersTab />} />
           <Route path="clientes" element={<AdminCustomersTab />} />
 
           {/* ✅ FINANCEIRO NOVO (rotas separadas) */}

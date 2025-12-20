@@ -158,7 +158,7 @@ export const AdminDashboard = () => {
             recipe_items(
               quantity,
               unit,
-              raw_materials(avg_cost_per_unit)
+              raw_materials(cost_per_unit)
             )
           `
           )
@@ -170,7 +170,7 @@ export const AdminDashboard = () => {
             const items = r?.recipe_items || [];
             return items.reduce((sum: number, it: any) => {
               const qty = safeNumber(it?.quantity);
-              const avg = safeNumber(it?.raw_materials?.avg_cost_per_unit);
+              const avg = safeNumber(it?.raw_materials?.cost_per_unit);
               // aqui você já trabalha em unidade base no estoque (ml/g/un), então mantemos simples
               return sum + qty * avg;
             }, 0);
@@ -224,13 +224,13 @@ export const AdminDashboard = () => {
 
       // AR recebido no mês (caixa)
       const arPayRes = await supabase
-        .from('ar_payments')
+        .from('ar_payments' as any)
         .select('amount, received_at')
         .gte('received_at', startOfMonthISO);
 
       // AP pago no mês (caixa)
       const apPayRes = await supabase
-        .from('ap_payments')
+        .from('ap_payments' as any)
         .select('amount, paid_at')
         .gte('paid_at', startOfMonthISO);
 

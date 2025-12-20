@@ -35,7 +35,7 @@ type RecipeItemRow = {
     id: string;
     name: string;
     unit: MeasurementUnit;
-    avg_cost_per_unit: number;
+    cost_per_unit: number;
   } | null;
 };
 
@@ -119,7 +119,7 @@ export const AdminRecipesTab = () => {
                 id,
                 name,
                 unit,
-                avg_cost_per_unit
+                cost_per_unit
               )
             )
           `
@@ -130,7 +130,7 @@ export const AdminRecipesTab = () => {
 
         supabase
           .from('raw_materials')
-          .select('id, name, unit, avg_cost_per_unit')
+          .select('id, name, unit, cost_per_unit')
           .eq('is_active', true)
           .order('name'),
       ]);
@@ -146,7 +146,7 @@ export const AdminRecipesTab = () => {
           id: m.id,
           name: m.name,
           unit: m.unit,
-          avg_cost_per_unit: safeNum(m.avg_cost_per_unit),
+          avg_cost_per_unit: safeNum(m.cost_per_unit),
         }))
       );
     } catch (err: any) {
@@ -396,11 +396,11 @@ export const AdminRecipesTab = () => {
     }
   };
 
-  // custo "atual" da receita baseado no avg_cost_per_unit atual de cada matéria-prima
+  // custo "atual" da receita baseado no cost_per_unit atual de cada matéria-prima
   const calcRecipeLiveCost = (r: RecipeRow) => {
     const items = r.recipe_items || [];
     return items.reduce((acc, it) => {
-      const matAvg = safeNum(it.raw_materials?.avg_cost_per_unit);
+      const matAvg = safeNum(it.raw_materials?.cost_per_unit);
       const baseQty = toBaseQty(safeNum(it.quantity), it.unit);
       return acc + baseQty * matAvg;
     }, 0);

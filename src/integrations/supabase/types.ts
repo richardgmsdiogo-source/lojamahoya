@@ -14,10 +14,441 @@ export type Database = {
   }
   public: {
     Tables: {
+      ap_bills: {
+        Row: {
+          category: string
+          created_at: string | null
+          default_payment_method_id: string | null
+          description: string
+          id: string
+          issue_date: string
+          notes: string | null
+          status: string
+          total_amount: number
+          updated_at: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          default_payment_method_id?: string | null
+          description: string
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          default_payment_method_id?: string | null
+          description?: string
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ap_bills_default_payment_method_id_fkey"
+            columns: ["default_payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "ap_payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_bills_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "ap_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ap_installments: {
+        Row: {
+          amount: number
+          bill_id: string
+          created_at: string | null
+          due_date: string
+          id: string
+          installment_no: number
+          status: string
+        }
+        Insert: {
+          amount?: number
+          bill_id: string
+          created_at?: string | null
+          due_date: string
+          id?: string
+          installment_no?: number
+          status?: string
+        }
+        Update: {
+          amount?: number
+          bill_id?: string
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          installment_no?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ap_installments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "ap_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ap_payment_methods: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          type?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      ap_payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          installment_id: string
+          notes: string | null
+          paid_at: string
+          payment_method_id: string | null
+          reference: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          installment_id: string
+          notes?: string | null
+          paid_at?: string
+          payment_method_id?: string | null
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          installment_id?: string
+          notes?: string | null
+          paid_at?: string
+          payment_method_id?: string | null
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ap_payments_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "ap_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_payments_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "ap_installments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "ap_payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ap_vendors: {
+        Row: {
+          created_at: string | null
+          document: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ar_customers: {
+        Row: {
+          created_at: string | null
+          document: string | null
+          email: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          document?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ar_installments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          due_date: string
+          id: string
+          installment_no: number
+          invoice_id: string
+          status: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          due_date: string
+          id?: string
+          installment_no?: number
+          invoice_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          installment_no?: number
+          invoice_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ar_installments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ar_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ar_invoices: {
+        Row: {
+          category: string
+          created_at: string | null
+          customer_id: string | null
+          default_payment_method_id: string | null
+          description: string
+          id: string
+          issue_date: string
+          notes: string | null
+          order_id: string | null
+          status: string
+          total_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          customer_id?: string | null
+          default_payment_method_id?: string | null
+          description: string
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          order_id?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          customer_id?: string | null
+          default_payment_method_id?: string | null
+          description?: string
+          id?: string
+          issue_date?: string
+          notes?: string | null
+          order_id?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ar_invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "ar_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ar_invoices_default_payment_method_id_fkey"
+            columns: ["default_payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "ar_payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ar_invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ar_payment_methods: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          type?: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      ar_payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          installment_id: string
+          notes: string | null
+          payment_method_id: string | null
+          received_at: string
+          reference: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          installment_id: string
+          notes?: string | null
+          payment_method_id?: string | null
+          received_at?: string
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          installment_id?: string
+          notes?: string | null
+          payment_method_id?: string | null
+          received_at?: string
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ar_payments_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "ar_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ar_payments_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: false
+            referencedRelation: "ar_installments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ar_payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "ar_payment_methods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string | null
           description: string | null
+          emoji: string | null
           id: string
           image_url: string | null
           name: string
@@ -27,6 +458,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           description?: string | null
+          emoji?: string | null
           id?: string
           image_url?: string | null
           name: string
@@ -36,6 +468,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           description?: string | null
+          emoji?: string | null
           id?: string
           image_url?: string | null
           name?: string
@@ -296,6 +729,72 @@ export type Database = {
           useful_life_months?: number | null
         }
         Relationships: []
+      }
+      internal_orders: {
+        Row: {
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          due_date: string | null
+          id: string
+          notes: string | null
+          product_id: string
+          production_batch_id: string | null
+          quantity: number
+          status: string
+          total_cost: number | null
+          unit_cost: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          product_id: string
+          production_batch_id?: string | null
+          quantity: number
+          status?: string
+          total_cost?: number | null
+          unit_cost?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          product_id?: string
+          production_batch_id?: string | null
+          quantity?: number
+          status?: string
+          total_cost?: number | null
+          unit_cost?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_orders_production_batch_id_fkey"
+            columns: ["production_batch_id"]
+            isOneToOne: false
+            referencedRelation: "production_batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_items: {
         Row: {
@@ -825,6 +1324,36 @@ export type Database = {
         }
         Relationships: []
       }
+      testimonials: {
+        Row: {
+          created_at: string | null
+          id: string
+          rating: number
+          status: string
+          text: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          rating: number
+          status?: string
+          text: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          rating?: number
+          status?: string
+          text?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -875,7 +1404,78 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      ap_installments_view: {
+        Row: {
+          amount: number | null
+          bill_category: string | null
+          bill_description: string | null
+          bill_id: string | null
+          created_at: string | null
+          due_date: string | null
+          id: string | null
+          installment_no: number | null
+          open_amount: number | null
+          paid_amount: number | null
+          status: string | null
+          vendor_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ap_bills_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "ap_vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ap_installments_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "ap_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ar_installments_view: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          customer_id: string | null
+          due_date: string | null
+          id: string | null
+          installment_no: number | null
+          invoice_category: string | null
+          invoice_description: string | null
+          invoice_id: string | null
+          open_amount: number | null
+          order_id: string | null
+          paid_amount: number | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ar_installments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ar_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ar_invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "ar_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ar_invoices_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       award_xp: {
