@@ -36,18 +36,31 @@ export const AboutSection = () => {
             </h2>
             <div className="space-y-4 font-serif text-muted-foreground leading-relaxed">
               <p>
-                Nascemos da crença de que pequenos rituais transformam o cotidiano em algo 
-                extraordinário. <strong className="text-primary">Mahoya</strong> significa a magia que acontece quando 
-                duas pessoas compartilham um momento especial.
+                Todo lugar encantado começa com uma intenção — e precisa de um nome.
+              </p>
+              <p>  
+                Mahoya nasce da junção de:
+              </p>
+
+              <p>  
+                 <strong className="text-primary">Mahō (魔法)</strong> — magia 
               </p>
               <p>
-                Cada aromatizante, cada vela, cada produto é criado artesanalmente com 
-                ingredientes selecionados, pensando em despertar sensações e criar memórias 
-                afetivas. Acreditamos que o aroma tem o poder de transportar, acolher e conectar.
+                <strong className="text-primary">Ya (屋) </strong>— casa, loja, lugar de encontro.
               </p>
+              <p>
+                Uma Casa da Magia, onde aromas são criados como feitiços e cada essência carrega intenção, cuidado e afeto.
+              </p>  
+              
+              <p>
+                Por trás do balcão encantado estão: Richard, o alquimista mineiro, mestre das fórmulas e dos detalhe e Roberta, a druida da Amazônia, guardiã das plantas, dos rituais e da alma sensorial da Mahoya.
+              </p>
+              <p>
+                Juntos, transformamos fogo, água, ervas e ar em velas, cheirinhos e sabonetes que despertam memórias, emoções e pequenos encantamentos do dia a dia.
+              </p>              
               <p className="flex items-center gap-2 text-primary font-medium">
                 <Heart className="h-4 w-4 text-accent fill-accent" />
-                Porque cada momento a dois merece um toque de magia.
+                ✨ Sua jornada começa agora, respire fundo e conheça os encantos de Mahoya.
               </p>
             </div>
           </div>

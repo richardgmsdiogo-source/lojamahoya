@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,161 +15,273 @@ interface Category {
   slug: string;
   description: string | null;
   image_url: string | null;
+  emoji: string | null;
 }
 
+type CategoryForm = {
+  name: string;
+  slug: string;
+  description: string;
+  image_url: string;
+  emoji: string;
+};
+
+const EMOJI_PICKER = [
+  '🕯️','✨','🌿','🍃','🌸','💧','🔥','🧼','🎁','🧪','🪵','🧙‍♀️','🌙','⭐','🍯','🫧','🌬️','🧿'
+];
+
 export const AdminCategoriesTab = () => {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isOpen, setIsOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [formData, setFormData] = useState({ name: '', slug: '', description: '', image_url: '' });
   const { toast } = useToast();
 
-  const fetchCategories = async () => {
-    setIsLoading(true);
-    const { data } = await supabase
-      .from('categories')
-      .select('*')
-      .order('name');
-    setCategories(data || []);
-    setIsLoading(false);
-  };
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+
+  const [formData, setFormData] = useState<CategoryForm>({
+    name: '',
+    slug: '',
+    description: '',
+    image_url: '',
+    emoji: ''
+  });
+
+  const previewSlug = useMemo(() => {
+    return formData.slug || generateSlug(formData.name);
+  }, [formData.slug, formData.name]);
 
   useEffect(() => {
     fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const generateSlug = (name: string) => {
-    return name
+  async function fetchCategories() {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id,name,slug,description,image_url,emoji')
+      .order('name');
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Não foi possível carregar categorias.', variant: 'destructive' });
+      setCategories([]);
+      setIsLoading(false);
+      return;
+    }
+
+    setCategories(data || []);
+    setIsLoading(false);
+  }
+
+  function generateSlug(name: string) {
+    return (name || '')
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
-  };
+  }
 
-  const resetForm = () => {
-    setFormData({ name: '', slug: '', description: '', image_url: '' });
+  function resetForm() {
+    setFormData({ name: '', slug: '', description: '', image_url: '', emoji: '' });
     setEditingCategory(null);
-  };
+  }
 
-  const openEdit = (cat: Category) => {
+  function openCreate() {
+    resetForm();
+    setIsOpen(true);
+  }
+
+  function openEdit(cat: Category) {
     setEditingCategory(cat);
     setFormData({
       name: cat.name,
       slug: cat.slug,
       description: cat.description || '',
-      image_url: cat.image_url || ''
+      image_url: cat.image_url || '',
+      emoji: cat.emoji || ''
     });
     setIsOpen(true);
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    
-    const slug = formData.slug || generateSlug(formData.name);
-    
+
+    const slug = (formData.slug || generateSlug(formData.name)).trim();
+
+    if (!formData.name.trim()) {
+      toast({ title: 'Atenção', description: 'Informe o nome da categoria.', variant: 'destructive' });
+      return;
+    }
+
+    const payload = {
+      name: formData.name.trim(),
+      slug,
+      description: formData.description.trim() || null,
+      image_url: formData.image_url.trim() || null,
+      emoji: formData.emoji.trim() || null,
+      updated_at: new Date().toISOString()
+    };
+
     if (editingCategory) {
       const { error } = await supabase
         .from('categories')
-        .update({
-          name: formData.name,
-          slug,
-          description: formData.description || null,
-          image_url: formData.image_url || null,
-          updated_at: new Date().toISOString()
-        })
+        .update(payload)
         .eq('id', editingCategory.id);
 
       if (error) {
         toast({ title: 'Erro', description: 'Erro ao atualizar categoria.', variant: 'destructive' });
-      } else {
-        toast({ title: 'Atualizado', description: 'Categoria atualizada com sucesso.' });
+        return;
       }
+
+      toast({ title: 'Atualizado', description: 'Categoria atualizada com sucesso.' });
     } else {
-      const { error } = await supabase
-        .from('categories')
-        .insert({
-          name: formData.name,
-          slug,
-          description: formData.description || null,
-          image_url: formData.image_url || null
-        });
+      // insert sem updated_at (se sua tabela tiver gatilho/def padrão, tudo bem)
+      const { error } = await supabase.from('categories').insert({
+        name: payload.name,
+        slug: payload.slug,
+        description: payload.description,
+        image_url: payload.image_url,
+        emoji: payload.emoji
+      });
 
       if (error) {
         toast({ title: 'Erro', description: 'Erro ao criar categoria.', variant: 'destructive' });
-      } else {
-        toast({ title: 'Criado', description: 'Categoria criada com sucesso.' });
+        return;
       }
+
+      toast({ title: 'Criado', description: 'Categoria criada com sucesso.' });
     }
 
     setIsOpen(false);
     resetForm();
     fetchCategories();
-  };
+  }
 
-  const deleteCategory = async (id: string) => {
-    const { error } = await supabase
-      .from('categories')
-      .delete()
-      .eq('id', id);
+  async function deleteCategory(id: string) {
+    const { error } = await supabase.from('categories').delete().eq('id', id);
 
     if (error) {
       toast({ title: 'Erro', description: 'Erro ao excluir categoria.', variant: 'destructive' });
-    } else {
-      toast({ title: 'Excluído', description: 'Categoria excluída.' });
-      fetchCategories();
+      return;
     }
-  };
+
+    toast({ title: 'Excluído', description: 'Categoria excluída.' });
+    fetchCategories();
+  }
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Categorias</CardTitle>
-        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
+
+        <Dialog
+          open={isOpen}
+          onOpenChange={(open) => {
+            setIsOpen(open);
+            if (!open) resetForm();
+          }}
+        >
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" onClick={openCreate}>
               <Plus className="h-4 w-4" />
               Nova Categoria
             </Button>
           </DialogTrigger>
+
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingCategory ? 'Editar' : 'Nova'} Categoria</DialogTitle>
             </DialogHeader>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label>Nome *</Label>
                 <Input
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                   required
                 />
               </div>
+
               <div>
                 <Label>Slug (automático se vazio)</Label>
                 <Input
                   value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                  onChange={(e) => setFormData((p) => ({ ...p, slug: e.target.value }))}
                   placeholder={generateSlug(formData.name) || 'ex: velas-aromaticas'}
                 />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Preview: <span className="font-mono">/{previewSlug || '-'}</span>
+                </p>
               </div>
+
               <div>
                 <Label>Descrição</Label>
                 <Textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
                   rows={3}
                 />
               </div>
+
               <div>
-                <Label>URL da Imagem</Label>
+                <Label>Emoji (opcional)</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    value={formData.emoji}
+                    onChange={(e) => setFormData((p) => ({ ...p, emoji: e.target.value }))}
+                    placeholder="Ex: 🕯️"
+                    className="w-24 text-center text-lg"
+                    inputMode="text"
+                  />
+                  <div className="text-sm text-muted-foreground">
+                    Preview:{' '}
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-secondary text-2xl">
+                      {formData.emoji?.trim() || '—'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {EMOJI_PICKER.map((em) => (
+                    <Button
+                      key={em}
+                      type="button"
+                      variant="outline"
+                      className="h-10 w-10 p-0 text-xl"
+                      onClick={() => setFormData((p) => ({ ...p, emoji: em }))}
+                      title={`Usar ${em}`}
+                    >
+                      {em}
+                    </Button>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10"
+                    onClick={() => setFormData((p) => ({ ...p, emoji: '' }))}
+                    title="Limpar emoji"
+                  >
+                    Limpar
+                  </Button>
+                </div>
+
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Dica: se você preencher <b>Imagem</b>, ela tem prioridade. Se não, usa o emoji.
+                </p>
+              </div>
+
+              <div>
+                <Label>URL da Imagem (opcional)</Label>
                 <Input
                   value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  onChange={(e) => setFormData((p) => ({ ...p, image_url: e.target.value }))}
                   placeholder="https://..."
                 />
               </div>
+
               <Button type="submit" className="w-full">
                 {editingCategory ? 'Atualizar' : 'Criar'} Categoria
               </Button>
@@ -177,33 +289,38 @@ export const AdminCategoriesTab = () => {
           </DialogContent>
         </Dialog>
       </CardHeader>
+
       <CardContent>
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando...</p>
         ) : categories.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">
-            Nenhuma categoria cadastrada
-          </p>
+          <p className="text-center text-muted-foreground py-8">Nenhuma categoria cadastrada</p>
         ) : (
           <div className="space-y-2">
             {categories.map((cat) => (
-              <div 
+              <div
                 key={cat.id}
                 className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
               >
                 <div className="flex items-center gap-4">
-                  {cat.image_url && (
-                    <img 
-                      src={cat.image_url} 
+                  {cat.image_url ? (
+                    <img
+                      src={cat.image_url}
                       alt={cat.name}
                       className="w-12 h-12 object-cover rounded"
                     />
+                  ) : (
+                    <div className="w-12 h-12 rounded bg-secondary flex items-center justify-center text-2xl">
+                      {cat.emoji || '🏷️'}
+                    </div>
                   )}
+
                   <div>
                     <p className="font-medium">{cat.name}</p>
                     <p className="text-xs text-muted-foreground">/{cat.slug}</p>
                   </div>
                 </div>
+
                 <div className="flex gap-2">
                   <Button variant="outline" size="icon" onClick={() => openEdit(cat)}>
                     <Pencil className="h-4 w-4" />

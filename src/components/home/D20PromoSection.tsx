@@ -16,8 +16,8 @@ export const prizes: Prize[] = [
   { range: [1, 5], title: 'Bênção da Natureza', description: '5% de desconto', code: 'MAHOYA5', type: 'discount' },
   { range: [6, 10], title: 'Essência Mística', description: '10% de desconto', code: 'MAHOYA10', type: 'discount' },
   { range: [11, 14], title: 'Poção de Boas-Vindas', description: '15% de desconto', code: 'MAHOYA15', type: 'discount' },
-  { range: [15, 17], title: 'Presente Encantado', description: 'Sachê aromático grátis', code: 'BRINDE', type: 'gift' },
-  { range: [18, 19], title: 'Tesouro Alquímico', description: '20% de desconto + brinde surpresa', code: 'TESOURO20', type: 'special' },
+  { range: [15, 17], title: 'Presente Encantado', description: 'Brinde surpresa', code: 'BRINDE', type: 'gift' },
+  { range: [18, 19], title: 'Tesouro Alquímico', description: '20% de desconto', code: 'TESOURO20', type: 'special' },
   { range: [20, 20], title: '✨ CRÍTICO! ✨', description: 'Vela artesanal grátis no pedido!', code: 'CRITICO', type: 'special' },
 ];
 

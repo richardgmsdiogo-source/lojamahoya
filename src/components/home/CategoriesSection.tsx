@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Sparkles, Droplets, Flame, Heart, Gift, Star, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,9 +10,10 @@ interface Category {
   slug: string;
   description: string | null;
   image_url: string | null;
+  emoji: string | null;
 }
 
-// Mapeamento de slugs para ícones
+// (Opcional) fallback por slug — só entra se não tiver imagem e nem emoji
 const iconMap: Record<string, React.ElementType> = {
   'home-spray': Sparkles,
   'agua-lencois': Droplets,
@@ -21,27 +22,46 @@ const iconMap: Record<string, React.ElementType> = {
   'kits': Gift,
 };
 
-const getIconForCategory = (slug: string) => {
+function getIconForCategory(slug: string) {
   return iconMap[slug] || Star;
-};
+}
 
 export const CategoriesSection = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      const { data } = await supabase
+    let isMounted = true;
+
+    async function fetchCategories() {
+      setIsLoading(true);
+
+      const { data, error } = await supabase
         .from('categories')
-        .select('*')
+        .select('id,name,slug,description,image_url,emoji')
         .order('name');
-      
+
+      if (!isMounted) return;
+
+      if (error) {
+        console.error('Erro ao buscar categorias:', error);
+        setCategories([]);
+        setIsLoading(false);
+        return;
+      }
+
       setCategories(data || []);
       setIsLoading(false);
-    };
+    }
 
     fetchCategories();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const hasCategories = useMemo(() => categories.length > 0, [categories.length]);
 
   if (isLoading) {
     return (
@@ -53,9 +73,7 @@ export const CategoriesSection = () => {
     );
   }
 
-  if (categories.length === 0) {
-    return null;
-  }
+  if (!hasCategories) return null;
 
   return (
     <section className="py-16 md:py-24">
@@ -72,26 +90,36 @@ export const CategoriesSection = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {categories.map((category) => {
             const Icon = getIconForCategory(category.slug);
+            const emoji = category.emoji?.trim();
+
             return (
               <Link key={category.id} to={`/catalogo?categoria=${category.id}`}>
                 <Card className="group h-full transition-all duration-300 hover:shadow-lg hover:shadow-accent/10 hover:-translate-y-1 bg-card border-border">
                   <CardContent className="p-6 md:p-8 text-center">
+                    {/* Ícone/Imagem/Emoji */}
                     {category.image_url ? (
                       <div className="mx-auto mb-4 h-16 w-16 rounded-full overflow-hidden bg-secondary">
-                        <img 
-                          src={category.image_url} 
+                        <img
+                          src={category.image_url}
                           alt={category.name}
                           className="h-full w-full object-cover"
+                          loading="lazy"
                         />
+                      </div>
+                    ) : emoji ? (
+                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary transition-colors group-hover:bg-accent/20">
+                        <span className="text-3xl leading-none">{emoji}</span>
                       </div>
                     ) : (
                       <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary transition-colors group-hover:bg-accent/20">
                         <Icon className="h-8 w-8 text-primary transition-colors group-hover:text-accent" />
                       </div>
                     )}
+
                     <h3 className="font-script text-xl md:text-2xl text-primary mb-2">
                       {category.name}
                     </h3>
+
                     {category.description && (
                       <p className="font-serif text-sm text-muted-foreground">
                         {category.description}

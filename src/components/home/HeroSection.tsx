@@ -28,18 +28,12 @@ export const HeroSection = () => {
           <img 
             src={mahoyaLogo} 
             alt="Mahoya - Magia Feita a Dois" 
-            className="mx-auto mb-6 h-48 w-auto md:h-64 lg:h-72 animate-fade-in object-contain"
+            className="mx-auto mb-6 h-56 md:h-72 lg:h-96 w-auto max-w-[350px] md:max-w-[450px] lg:max-w-[550px] animate-fade-in object-contain"
           />
-          
-          {/* Main heading - reduced letter-spacing and line-height */}
-          <h1 className="font-script text-3xl md:text-4xl lg:text-5xl text-primary mb-3 animate-fade-in tracking-tight leading-tight">
-            Magia feita a dois em forma de aroma
-          </h1>
           
           {/* Subtitle - reduced spacing and size */}
           <p className="font-serif text-base md:text-lg text-muted-foreground mb-6 max-w-xl mx-auto leading-normal tracking-normal animate-fade-in">
             Descubra nossa coleção artesanal de aromatizantes, velas e itens de bem-estar. 
-            Cada produto é pensado para criar momentos especiais.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in">

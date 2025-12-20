@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrencyBRL } from '@/lib/format';
 
-const WHATSAPP_NUMBER = '5511999999999'; // TODO: Substituir pelo número real
+const WHATSAPP_NUMBER = '5531986841995'; // TODO: Substituir pelo número real
 
 interface UserProfile {
   name: string | null;
@@ -182,7 +182,7 @@ const Pedido = () => {
           <ShoppingBag className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
           <h1 className="font-script text-3xl text-primary mb-2">Seu pedido está vazio</h1>
           <p className="font-serif text-muted-foreground mb-6">Explore nossa coleção e adicione produtos.</p>
-          <Button asChild><Link to="/catalogo">Ver Catálogo</Link></Button>
+          <Button asChild><Link to="/catalogo">Ver Inventário do Ateliê</Link></Button>
         </div>
       </Layout>
     );

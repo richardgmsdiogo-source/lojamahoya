@@ -104,6 +104,17 @@ const Catalogo = () => {
     return matchesCategory && matchesScentFamily;
   });
 
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    const aOut = !(a.inStock ?? false);
+    const bOut = !(b.inStock ?? false);
+
+    // 1) esgotado vai pro final
+    if (aOut !== bOut) return aOut ? 1 : -1;
+
+    // 2) dentro do grupo, ordem alfabética
+    return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+  });
+
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategories((prev) =>
       prev.includes(categoryId) 
@@ -175,8 +186,8 @@ const Catalogo = () => {
     <Layout>
       <div className="container py-8 md:py-12">
         <div className="text-center mb-8">
-          <h1 className="font-script text-4xl md:text-5xl text-primary mb-2">Catálogo</h1>
-          <p className="font-serif text-muted-foreground">Explore nossa coleção de aromas artesanais</p>
+          <h1 className="font-script text-4xl md:text-5xl text-primary mb-2">Inventário do Ateliê</h1>
+          <p className="font-serif text-muted-foreground">Escolha os suprimentos da sua jornada, lembrando que aromas são experiências pessoais. Em caso de dúvida, fale com a gente antes de escolher.</p>
         </div>
 
         {isLoading ? (
@@ -211,7 +222,7 @@ const Catalogo = () => {
                 </p>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProducts.map((product) => (
+                  {sortedProducts.map((product) => (
                     <ProductCardDB key={product.id} product={product} />
                   ))}
                 </div>

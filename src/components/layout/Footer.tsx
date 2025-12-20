@@ -1,8 +1,14 @@
 import { Link } from 'react-router-dom';
-import { Leaf, Flame, Sparkles, Heart } from 'lucide-react';
+import { Leaf, Flame, Sparkles, Heart, MessageCircle, Instagram, Mail } from 'lucide-react';
 import mahoyaLogo from '@/assets/mahoya-logo.png';
 
+const WHATSAPP_NUMBER = '5531986841995';
+const INSTAGRAM_URL = 'https://instagram.com/SEU_USUARIO_AQUI';
+const EMAIL = 'lojamahoya@gmail.com';
+
 export const Footer = () => {
+  const year = new Date().getFullYear();
+
   return (
     <footer className="border-t border-border bg-card">
       <div className="container py-12 md:py-16">
@@ -15,10 +21,35 @@ export const Footer = () => {
             <p className="text-sm text-muted-foreground font-serif leading-relaxed">
               Aromas artesanais para momentos mágicos a dois. Cada produto é feito com carinho e ingredientes selecionados.
             </p>
-            <div className="flex gap-2 mt-4">
-              <Leaf className="h-4 w-4 text-primary" />
-              <Flame className="h-4 w-4 text-accent" />
-              <Sparkles className="h-4 w-4 text-accent" />
+            {/* Contato rápido */}
+            <div className="flex items-center gap-3 mt-5">
+              <a
+                href={`https://wa.me/${WHATSAPP_NUMBER}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-primary transition-colors"
+                aria-label="WhatsApp"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </a>
+
+              <a
+                href={INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-primary transition-colors"
+                aria-label="Instagram"
+              >
+                <Instagram className="h-4 w-4" />
+              </a>
+
+              <a
+                href={`mailto:${EMAIL}`}
+                className="text-muted-foreground hover:text-primary transition-colors"
+                aria-label="E-mail"
+              >
+                <Mail className="h-4 w-4" />
+              </a>
             </div>
           </div>
 
@@ -28,7 +59,7 @@ export const Footer = () => {
             <ul className="space-y-2">
               <li>
                 <Link to="/catalogo" className="text-sm text-muted-foreground hover:text-primary transition-colors font-serif">
-                  Catálogo
+                  Inventário do Ateliê
                 </Link>
               </li>
               <li>
@@ -101,7 +132,7 @@ export const Footer = () => {
 
         <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground font-serif flex items-center gap-1">
-            © 2024 Mahoya. Feito com <Heart className="h-3 w-3 text-accent fill-accent" /> para momentos especiais.
+            © {year} Mahoya. Feito com <Heart className="h-3 w-3 text-accent fill-accent" /> para momentos especiais.
           </p>
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-accent animate-sparkle" />

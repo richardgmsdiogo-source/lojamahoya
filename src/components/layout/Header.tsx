@@ -16,7 +16,7 @@ import {
 
 const navLinks = [
   { href: '/', label: 'Home' },
-  { href: '/catalogo', label: 'Catálogo' },
+  { href: '/catalogo', label: 'Inventário do Ateliê' },
   { href: '/sobre', label: 'Sobre' },
   { href: '/faq', label: 'FAQ' },
   { href: '/contato', label: 'Contato' },
@@ -84,7 +84,7 @@ export const Header = () => {
                 <DropdownMenuItem asChild>
                   <Link to="/minha-conta" className="flex items-center gap-2">
                     <Package className="h-4 w-4" />
-                    Minha Conta
+                    Área do Aventureiro
                   </Link>
                 </DropdownMenuItem>
                 {isAdmin && (

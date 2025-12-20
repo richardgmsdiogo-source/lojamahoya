@@ -12,11 +12,6 @@ const benefits = [
     description: 'Utilizamos apenas matérias-primas de qualidade e origem consciente.',
   },
   {
-    icon: Heart,
-    title: 'Pensado para Dois',
-    description: 'Aromas desenvolvidos para criar conexão e momentos especiais a dois.',
-  },
-  {
     icon: Flame,
     title: 'Produção Limitada',
     description: 'Lotes exclusivos que garantem a qualidade e singularidade de cada item.',
@@ -36,7 +31,7 @@ export const BenefitsSection = () => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+        <div className="mx-auto grid max-w-5xl grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 place-items-center">
           {benefits.map((benefit, index) => (
             <div
               key={index}

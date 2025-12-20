@@ -15,6 +15,9 @@ import FAQ from "./pages/FAQ";
 import Contato from "./pages/Contato";
 import Sobre from "./pages/Sobre";
 import NotFound from "./pages/NotFound";
+import Politicas from '@/pages/Politicas';
+import Termos from '@/pages/Termos';
+import Trocas from '@/pages/Trocas';
 
 const queryClient = new QueryClient();
 
@@ -37,6 +40,9 @@ const App = () => (
               <Route path="/contato" element={<Contato />} />
               <Route path="/sobre" element={<Sobre />} />
               <Route path="*" element={<NotFound />} />
+              <Route path="/privacidade" element={<Politicas />} />
+              <Route path="/termos" element={<Termos />} />
+              <Route path="/trocas" element={<Trocas />} />
             </Routes>
           </BrowserRouter>
         </TooltipProvider>

@@ -1,188 +1,228 @@
-import { useState, useEffect } from 'react';
-import { Package, Pencil, Calculator, Save, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { formatCurrencyBRL, formatNumberBR } from '@/lib/format';
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Package, Pencil } from "lucide-react";
 
-interface ProductWithStock {
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+
+import { formatCurrencyBRL } from "@/lib/format";
+
+// ===== helpers
+const safeNum = (v: any) => {
+  const n = typeof v === "number" ? v : parseFloat(String(v ?? "0").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+};
+
+// se você usa L/kg, aqui você alinha com a Produção
+const toBaseQty = (qty: number, unit: string) => {
+  const u = String(unit ?? "").toLowerCase();
+  if (u === "l") return qty * 1000;
+  if (u === "kg") return qty * 1000;
+  return qty;
+};
+
+type ProductRow = {
   id: string;
   name: string;
-  slug: string;
-  price: number;
-  is_active: boolean;
+  slug: string | null;
+  price: number | null;
+  is_active: boolean | null;
   image_url: string | null;
   category: { name: string } | null;
-  finished_goods_stock: { current_quantity: number } | null;
-  recipe: { total_cost: number }[] | null;
-}
+  finished_goods_stock: { current_quantity: number } | null; // normalizado
+};
+
+type RecipeActiveRow = {
+  product_id: string;
+  id: string;
+  is_active: boolean;
+  version: number | null;
+  recipe_items: Array<{
+    quantity: number;
+    unit: string;
+    raw_materials: { avg_cost_per_unit: number | null } | null;
+  }>;
+};
+
+type LastBatchCostRow = {
+  product_id: string;
+  unit_cost: number | null;
+  total_cost: number | null;
+  quantity_produced: number | null;
+  created_at: string;
+  status_new: string | null;
+};
 
 export const AdminFinishedGoodsTab = () => {
-  const [products, setProducts] = useState<ProductWithStock[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [editingProduct, setEditingProduct] = useState<ProductWithStock | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
-  
-  // Form state
-  const [quantity, setQuantity] = useState('');
-  const [priceMode, setPriceMode] = useState<'percentage' | 'value'>('percentage');
-  const [profitPercentage, setProfitPercentage] = useState('');
-  const [finalPrice, setFinalPrice] = useState('');
-  
   const { toast } = useToast();
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    
-    const { data: prods } = await supabase
-      .from('products')
-      .select(`
-        id,
-        name,
-        slug,
-        price,
-        is_active,
-        image_url,
-        category:categories(name),
-        finished_goods_stock(current_quantity),
-        recipe:recipes(total_cost)
-      `)
-      .order('name');
-    
-    // Transform the data to match expected interface
-    const transformedProducts: ProductWithStock[] = (prods || []).map((p: any) => {
-      const stockRel = p.finished_goods_stock;
-      const normalizedStock = Array.isArray(stockRel)
-        ? (stockRel[0] ?? null)
-        : (stockRel ?? null);
+  const [editing, setEditing] = useState<null | ProductRow>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [quantity, setQuantity] = useState("");
+  const [finalPrice, setFinalPrice] = useState("");
 
-      return {
-        ...p,
-        finished_goods_stock: normalizedStock,
-        recipe: p.recipe || null,
-      };
-    });
-    
-    setProducts(transformedProducts);
-    setIsLoading(false);
-  };
+  // 1) Produtos + estoque acabado
+  const { data: products = [], refetch: refetchProducts, isLoading } = useQuery({
+    queryKey: ["fg-products"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
+          id,
+          name,
+          slug,
+          price,
+          is_active,
+          image_url,
+          category:categories(name),
+          finished_goods_stock(current_quantity)
+        `)
+        .order("name");
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+      if (error) throw error;
 
-  const getCostPrice = (product: ProductWithStock): number => {
-    // Pegar o custo da receita ativa
-    if (Array.isArray(product.recipe) && product.recipe.length > 0) {
-      return product.recipe[0].total_cost || 0;
+      // normaliza relação (array -> 1)
+      return (data ?? []).map((p: any) => {
+        const rel = p.finished_goods_stock;
+        const normalized = Array.isArray(rel) ? (rel[0] ?? null) : (rel ?? null);
+        return { ...p, finished_goods_stock: normalized } as ProductRow;
+      });
+    },
+  });
+
+  // 2) Receita ativa (para custo ao vivo)
+  const { data: activeRecipes = [] } = useQuery({
+    queryKey: ["fg-active-recipes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("recipes")
+        .select(`
+          id,
+          product_id,
+          is_active,
+          version,
+          recipe_items(
+            quantity,
+            unit,
+            raw_materials(avg_cost_per_unit)
+          )
+        `)
+        .eq("is_active", true);
+
+      if (error) throw error;
+      return (data ?? []) as any as RecipeActiveRow[];
+    },
+  });
+
+  // 3) Último lote concluído (para custo real)
+  const { data: lastBatches = [] } = useQuery({
+    queryKey: ["fg-last-batches"],
+    queryFn: async () => {
+      // pega últimos lotes concluídos (ajuste nomes se necessário)
+      const { data, error } = await supabase
+        .from("production_batches")
+        .select("product_id, unit_cost, total_cost, quantity_produced, created_at, status_new")
+        .eq("status_new", "concluido")
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (error) throw error;
+      return (data ?? []) as any as LastBatchCostRow[];
+    },
+  });
+
+  const recipeByProduct = useMemo(() => {
+    const m = new Map<string, RecipeActiveRow>();
+    for (const r of activeRecipes) m.set(r.product_id, r);
+    return m;
+  }, [activeRecipes]);
+
+  const lastBatchByProduct = useMemo(() => {
+    const m = new Map<string, LastBatchCostRow>();
+    for (const b of lastBatches) {
+      if (!m.has(b.product_id)) m.set(b.product_id, b); // como já está ordenado desc, o primeiro é o mais recente
     }
-    return 0;
+    return m;
+  }, [lastBatches]);
+
+  const getStock = (p: ProductRow) => safeNum(p.finished_goods_stock?.current_quantity);
+
+  const getLiveRecipeUnitCost = (productId: string) => {
+    const r = recipeByProduct.get(productId);
+    if (!r) return 0;
+
+    const total = (r.recipe_items ?? []).reduce((acc, it) => {
+      const avg = safeNum(it.raw_materials?.avg_cost_per_unit);
+      const requiredBase = toBaseQty(safeNum(it.quantity), String(it.unit ?? ""));
+      return acc + requiredBase * avg;
+    }, 0);
+
+    return total; // custo por 1 unidade do produto (mesma ideia do AdminProductionTab)
   };
 
-  const getStock = (product: ProductWithStock): number => {
-    return product.finished_goods_stock?.current_quantity || 0;
+  const getUnitCost = (productId: string): { value: number; source: "batch" | "recipe" | "none" } => {
+    const last = lastBatchByProduct.get(productId);
+    if (last && safeNum(last.unit_cost) > 0) return { value: safeNum(last.unit_cost), source: "batch" };
+
+    const live = getLiveRecipeUnitCost(productId);
+    if (live > 0) return { value: live, source: "recipe" };
+
+    return { value: 0, source: "none" };
   };
 
-  const calculateProfitMargin = (costPrice: number, salePrice: number): number => {
-    if (costPrice <= 0) return 0;
-    return ((salePrice - costPrice) / costPrice) * 100;
+  const openEdit = (p: ProductRow) => {
+    setEditing(p);
+    setQuantity(String(getStock(p)));
+    setFinalPrice(String(safeNum(p.price)));
+    setIsEditOpen(true);
   };
 
-  const openEditDialog = (product: ProductWithStock) => {
-    setEditingProduct(product);
-    const stock = getStock(product);
-    const costPrice = getCostPrice(product);
-    const margin = calculateProfitMargin(costPrice, product.price);
-    
-    setQuantity(stock.toString());
-    setPriceMode('percentage');
-    setProfitPercentage(margin.toFixed(2));
-    setFinalPrice(product.price.toString());
-    setIsEditDialogOpen(true);
-  };
+  const save = async () => {
+    if (!editing) return;
 
-  const handlePercentageChange = (value: string) => {
-    setProfitPercentage(value);
-    setPriceMode('percentage');
-    
-    if (editingProduct) {
-      const costPrice = getCostPrice(editingProduct);
-      const percentage = parseFloat(value) || 0;
-      const calculatedPrice = costPrice * (1 + percentage / 100);
-      setFinalPrice(calculatedPrice.toFixed(2));
-    }
-  };
+    const newPrice = safeNum(finalPrice);
+    const newQty = Math.max(0, Math.floor(safeNum(quantity)));
 
-  const handleFinalPriceChange = (value: string) => {
-    setFinalPrice(value);
-    setPriceMode('value');
-    
-    if (editingProduct) {
-      const costPrice = getCostPrice(editingProduct);
-      const price = parseFloat(value) || 0;
-      if (costPrice > 0) {
-        const percentage = ((price - costPrice) / costPrice) * 100;
-        setProfitPercentage(percentage.toFixed(2));
-      }
-    }
-  };
-
-  const handleSaveClick = () => {
-    setIsConfirmDialogOpen(true);
-  };
-
-  const handleConfirmSave = async () => {
-    if (!editingProduct) return;
-    
-    const newPrice = parseFloat(finalPrice);
-    const newQuantity = parseInt(quantity);
-    
-    if (isNaN(newPrice) || newPrice <= 0) {
-      toast({ title: 'Erro', description: 'Preço inválido.', variant: 'destructive' });
+    if (newPrice <= 0) {
+      toast({ title: "Erro", description: "Preço inválido.", variant: "destructive" });
       return;
     }
-    
-    // Atualizar preço do produto
-    const { error: priceError } = await supabase
-      .from('products')
+
+    // 1) preço
+    const { error: priceErr } = await supabase
+      .from("products")
       .update({ price: newPrice, updated_at: new Date().toISOString() })
-      .eq('id', editingProduct.id);
-    
-    if (priceError) {
-      toast({ title: 'Erro', description: 'Erro ao atualizar preço: ' + priceError.message, variant: 'destructive' });
+      .eq("id", editing.id);
+
+    if (priceErr) {
+      toast({ title: "Erro", description: "Erro ao atualizar preço: " + priceErr.message, variant: "destructive" });
       return;
     }
-    
-    // Atualizar ou inserir estoque usando upsert
-    if (!isNaN(newQuantity) && newQuantity >= 0) {
-      const { error: stockError } = await supabase
-        .from('finished_goods_stock')
-        .upsert(
-          { 
-            product_id: editingProduct.id, 
-            current_quantity: newQuantity, 
-            updated_at: new Date().toISOString() 
-          },
-          { onConflict: 'product_id' }
-        );
-      
-      if (stockError) {
-        toast({ title: 'Erro', description: 'Erro ao atualizar estoque: ' + stockError.message, variant: 'destructive' });
-        return;
-      }
+
+    // 2) estoque
+    const { error: stockErr } = await supabase
+      .from("finished_goods_stock")
+      .upsert(
+        { product_id: editing.id, current_quantity: newQty, updated_at: new Date().toISOString() },
+        { onConflict: "product_id" }
+      );
+
+    if (stockErr) {
+      toast({ title: "Erro", description: "Erro ao atualizar estoque: " + stockErr.message, variant: "destructive" });
+      return;
     }
-    
-    toast({ title: 'Sucesso', description: 'Produto atualizado com sucesso.' });
-    setIsEditDialogOpen(false);
-    setIsConfirmDialogOpen(false);
-    setEditingProduct(null);
-    fetchData();
+
+    toast({ title: "Sucesso", description: "Produto atualizado." });
+    setIsEditOpen(false);
+    setEditing(null);
+    refetchProducts();
   };
 
   return (
@@ -193,78 +233,64 @@ export const AdminFinishedGoodsTab = () => {
           Estoque & Preços de Venda ({products.length})
         </CardTitle>
       </CardHeader>
+
       <CardContent>
         {isLoading ? (
           <p className="text-center text-muted-foreground py-8">Carregando...</p>
         ) : products.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">
-            Nenhum produto cadastrado
-          </p>
+          <p className="text-center text-muted-foreground py-8">Nenhum produto cadastrado</p>
         ) : (
           <div className="space-y-2">
             <div className="grid grid-cols-6 gap-4 p-3 bg-muted rounded-lg font-medium text-sm">
               <span className="col-span-2">Produto</span>
-              <span className="text-right">Custo</span>
+              <span className="text-right">Custo (un)</span>
               <span className="text-right">Preço Venda</span>
               <span className="text-right">Estoque</span>
               <span className="text-right">Ações</span>
             </div>
-            
-            {products.map((prod) => {
-              const costPrice = getCostPrice(prod);
-              const stock = getStock(prod);
-              const margin = calculateProfitMargin(costPrice, prod.price);
-              
+
+            {products.map((p) => {
+              const stock = getStock(p);
+              const unitCost = getUnitCost(p.id);
+
               return (
-                <div 
-                  key={prod.id}
+                <div
+                  key={p.id}
                   className={`grid grid-cols-6 gap-4 p-4 rounded-lg items-center ${
-                    prod.is_active ? 'bg-muted/50' : 'bg-muted/30 opacity-60'
+                    p.is_active ? "bg-muted/50" : "bg-muted/30 opacity-60"
                   }`}
                 >
-                  <div className="col-span-2 flex items-center gap-3">
-                    {prod.image_url && (
-                      <img 
-                        src={prod.image_url}
-                        alt={prod.name}
+                  <div className="col-span-2 flex items-center gap-3 min-w-0">
+                    {p.image_url && (
+                      <img
+                        src={p.image_url}
+                        alt={p.name}
                         loading="lazy"
                         className="w-10 h-10 object-cover rounded"
                       />
                     )}
-                    <div>
-                      <p className="font-medium">{prod.name}</p>
-                      {prod.category && (
-                        <p className="text-xs text-muted-foreground">{prod.category.name}</p>
-                      )}
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{p.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {p.category?.name ?? "Sem categoria"} •{" "}
+                        {unitCost.source === "batch" ? "custo: último lote" : unitCost.source === "recipe" ? "custo: receita" : "custo: n/d"}
+                      </p>
                     </div>
                   </div>
-                  
+
                   <div className="text-right">
-                    <p className="font-mono">{formatCurrencyBRL(costPrice)}</p>
+                    <Badge variant="secondary">{formatCurrencyBRL(unitCost.value)}</Badge>
                   </div>
-                  
+
+                  <div className="text-right font-medium">{formatCurrencyBRL(safeNum(p.price))}</div>
+
                   <div className="text-right">
-                    <p className="font-mono font-medium">{formatCurrencyBRL(prod.price)}</p>
-                    {costPrice > 0 && (
-                      <p className={`text-xs ${margin > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {margin > 0 ? '+' : ''}{formatNumberBR(margin, { maximumFractionDigits: 2 })}%
-                      </p>
-                    )}
+                    <Badge variant="outline">{stock}</Badge>
                   </div>
-                  
+
                   <div className="text-right">
-                    <p className={`font-mono ${stock <= 0 ? 'text-red-600' : ''}`}>
-                      {stock} un.
-                    </p>
-                  </div>
-                  
-                  <div className="text-right">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => openEditDialog(prod)}
-                    >
-                      <Pencil className="h-4 w-4 mr-1" />
+                    <Button size="sm" variant="outline" onClick={() => openEdit(p)}>
+                      <Pencil className="h-4 w-4 mr-2" />
                       Editar
                     </Button>
                   </div>
@@ -273,115 +299,34 @@ export const AdminFinishedGoodsTab = () => {
             })}
           </div>
         )}
-      </CardContent>
 
-      {/* Dialog de edição */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar {editingProduct?.name}</DialogTitle>
-          </DialogHeader>
-          
-          {editingProduct && (
-            <div className="space-y-6">
-              {/* Info de custo */}
-              <div className="p-4 bg-muted rounded-lg">
-                <p className="text-sm text-muted-foreground">Preço de Custo (receita ativa)</p>
-                <p className="text-xl font-bold">{formatCurrencyBRL(getCostPrice(editingProduct))}</p>
-              </div>
-              
-              {/* Quantidade em estoque */}
+        <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar produto</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
               <div>
-                <Label>Quantidade em Estoque</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                  className="mt-1"
-                />
+                <Label>Estoque (un)</Label>
+                <Input type="number" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
               </div>
-              
-              {/* Definição de preço */}
-              <div className="space-y-4">
-                <Label className="flex items-center gap-2">
-                  <Calculator className="h-4 w-4" />
-                  Definir Preço de Venda
-                </Label>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm text-muted-foreground">% de Lucro</Label>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={profitPercentage}
-                        onChange={(e) => handlePercentageChange(e.target.value)}
-                        className={priceMode === 'percentage' ? 'border-primary' : ''}
-                      />
-                      <span className="text-muted-foreground">%</span>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Valor Final</Label>
-                    <div className="flex items-center gap-1 mt-1">
-                      <span className="text-muted-foreground">R$</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={finalPrice}
-                        onChange={(e) => handleFinalPriceChange(e.target.value)}
-                        className={priceMode === 'value' ? 'border-primary' : ''}
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                <p className="text-xs text-muted-foreground">
-                  {priceMode === 'percentage' 
-                    ? `Preço calculado com base na % de lucro: ${formatCurrencyBRL(parseFloat(finalPrice) || 0)}`
-                    : `Margem calculada com base no valor: ${formatNumberBR(parseFloat(profitPercentage) || 0, { maximumFractionDigits: 2 })}%`
-                  }
-                </p>
-              </div>
-              
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                  <X className="h-4 w-4 mr-1" />
-                  Cancelar
-                </Button>
-                <Button onClick={handleSaveClick}>
-                  <Save className="h-4 w-4 mr-1" />
-                  Salvar
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
-      {/* Dialog de confirmação */}
-      <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar alterações?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Você está prestes a alterar o preço e/ou estoque do produto <strong>{editingProduct?.name}</strong>.
-              <br /><br />
-              <strong>Novo preço:</strong> {formatCurrencyBRL(parseFloat(finalPrice) || 0)}<br />
-              <strong>Nova quantidade:</strong> {quantity} unidades
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave}>
-              Confirmar Alterações
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <div>
+                <Label>Preço de venda (R$)</Label>
+                <Input type="number" step="0.01" value={finalPrice} onChange={(e) => setFinalPrice(e.target.value)} />
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={save}>Salvar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
     </Card>
   );
 };
