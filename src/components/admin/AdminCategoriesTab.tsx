@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +16,7 @@ interface Category {
   description: string | null;
   image_url: string | null;
   emoji: string | null;
+  is_active: boolean;
 }
 
 type CategoryForm = {
@@ -60,7 +61,7 @@ export const AdminCategoriesTab = () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('categories')
-      .select('id,name,slug,description,image_url,emoji')
+      .select('id,name,slug,description,image_url,emoji,is_active')
       .order('name');
 
     if (error) {
@@ -163,11 +164,37 @@ export const AdminCategoriesTab = () => {
     const { error } = await supabase.from('categories').delete().eq('id', id);
 
     if (error) {
-      toast({ title: 'Erro', description: 'Erro ao excluir categoria.', variant: 'destructive' });
+      if ((error as any).code === '23503') {
+        toast({
+          title: 'Não é possível excluir',
+          description: 'Esta categoria está vinculada a produtos. Desative em vez de excluir.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Erro', description: 'Erro ao excluir categoria.', variant: 'destructive' });
+      }
       return;
     }
 
     toast({ title: 'Excluído', description: 'Categoria excluída.' });
+    fetchCategories();
+  }
+
+  async function toggleActive(category: Category) {
+    const { error } = await supabase
+      .from('categories')
+      .update({ is_active: !category.is_active })
+      .eq('id', category.id);
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao atualizar status.', variant: 'destructive' });
+      return;
+    }
+
+    toast({ 
+      title: category.is_active ? 'Desativada' : 'Ativada', 
+      description: `Categoria ${category.is_active ? 'desativada' : 'ativada'} com sucesso.` 
+    });
     fetchCategories();
   }
 
@@ -300,7 +327,9 @@ export const AdminCategoriesTab = () => {
             {categories.map((cat) => (
               <div
                 key={cat.id}
-                className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
+                className={`flex items-center justify-between p-4 rounded-lg ${
+                  cat.is_active ? 'bg-muted/50' : 'bg-muted/20 opacity-60'
+                }`}
               >
                 <div className="flex items-center gap-4">
                   {cat.image_url ? (
@@ -316,12 +345,27 @@ export const AdminCategoriesTab = () => {
                   )}
 
                   <div>
-                    <p className="font-medium">{cat.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{cat.name}</p>
+                      {!cat.is_active && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-destructive/10 text-destructive">
+                          Inativa
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">/{cat.slug}</p>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => toggleActive(cat)}
+                    title={cat.is_active ? 'Desativar' : 'Ativar'}
+                  >
+                    {cat.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
                   <Button variant="outline" size="icon" onClick={() => openEdit(cat)}>
                     <Pencil className="h-4 w-4" />
                   </Button>

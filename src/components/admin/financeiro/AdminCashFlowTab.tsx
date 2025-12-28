@@ -6,26 +6,9 @@ import { formatCurrencyBRL } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import {
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Wallet,
-  Receipt,
-  Factory,
-  ArrowDownCircle,
-  ArrowUpCircle,
-} from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Wallet, Receipt, Factory, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
 
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  endOfDay,
-  subMonths,
-  parseISO,
-  startOfDay,
-} from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 type Period = "current" | "last" | "last3" | "last6" | "year";
@@ -44,8 +27,6 @@ const safeDate = (iso: any) => {
   }
 };
 
-const isCanceled = (status: any) => String(status ?? "").toLowerCase().trim() === "cancelado";
-
 const getPeriodDates = (period: Period) => {
   const now = new Date();
   let start: Date;
@@ -54,7 +35,6 @@ const getPeriodDates = (period: Period) => {
   switch (period) {
     case "current":
       start = startOfMonth(now);
-      end = endOfMonth(now);
       break;
     case "last":
       start = startOfMonth(subMonths(now, 1));
@@ -62,104 +42,31 @@ const getPeriodDates = (period: Period) => {
       break;
     case "last3":
       start = startOfMonth(subMonths(now, 2));
-      end = endOfMonth(now);
       break;
     case "last6":
       start = startOfMonth(subMonths(now, 5));
-      end = endOfMonth(now);
       break;
     case "year":
       start = new Date(now.getFullYear(), 0, 1);
-      end = endOfMonth(now);
       break;
     default:
       start = startOfMonth(now);
-      end = endOfMonth(now);
   }
 
   return { start, end };
-};
-
-// ===== Tipos (bem práticos) =====
-type ARPaymentRow = {
-  id: string;
-  amount: number;
-  received_at: string;
-  reference: string | null;
-  installment_id: string;
-  ar_payment_methods?: { name: string } | null;
-  ar_installments?: {
-    id: string;
-    installment_no: number;
-    due_date: string;
-    invoice_id: string;
-    ar_invoices?: {
-      id: string;
-      description: string;
-      order_id: string | null;
-      customer_id: string;
-      ar_customers?: { name: string } | null;
-    } | null;
-  } | null;
-};
-
-type ARInstallmentViewRow = {
-  id: string;
-  invoice_id: string;
-  installment_no: number;
-  due_date: string;
-  amount: number;
-  status: string | null;
-  paid_amount: number;
-  open_amount: number;
-};
-
-type APPaymentRow = {
-  id: string;
-  amount: number;
-  paid_at: string;
-  reference: string | null;
-  installment_id: string;
-  ap_payment_methods?: { name: string } | null;
-  ap_installments?: {
-    id: string;
-    installment_no: number;
-    due_date: string;
-    bill_id: string;
-    ap_bills?: {
-      id: string;
-      description: string;
-      vendor_id: string;
-      ap_vendors?: { name: string } | null;
-    } | null;
-  } | null;
-};
-
-type APInstallmentViewRow = {
-  id: string;
-  bill_id: string;
-  installment_no: number;
-  due_date: string;
-  amount: number;
-  status: string | null;
-  paid_amount: number;
-  open_amount: number;
 };
 
 export function AdminCashFlowTab() {
   const [period, setPeriod] = useState<Period>("current");
   const { start, end } = getPeriodDates(period);
 
-  // toggles legado (complemento)
+  // toggles: usar legado como complemento (sem duplicar)
   const [includeLegacyOrders, setIncludeLegacyOrders] = useState(true);
   const [includeLegacyExpenses, setIncludeLegacyExpenses] = useState(true);
   const [includeLegacyMaterialPurchases, setIncludeLegacyMaterialPurchases] = useState(true);
 
-  // cuidado com corte no fim do mês: usa endOfDay
-  const startISO = startOfDay(start).toISOString();
-  const endISO = endOfDay(end).toISOString();
-
-  // para colunas DATE (due_date etc)
+  const startISO = start.toISOString();
+  const endISO = end.toISOString();
   const startDate = format(start, "yyyy-MM-dd");
   const endDate = format(end, "yyyy-MM-dd");
 
@@ -170,7 +77,7 @@ export function AdminCashFlowTab() {
     queryKey: ["cashflow-ar-payments", period],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ar_payments")
+        .from("ar_payments" as any)
         .select(
           `
           id,
@@ -198,22 +105,18 @@ export function AdminCashFlowTab() {
         .lte("received_at", endISO)
         .order("received_at", { ascending: false });
 
-      if (error) {
-        console.error("cashflow-ar-payments", error);
-        return [] as ARPaymentRow[];
-      }
-      return (data ?? []) as ARPaymentRow[];
+      // se ainda não existir, não quebra sua tela:
+      if (error) return [];
+      return data ?? [];
     },
   });
 
-  // ===========================
-  // AR: Previsto (parcelas no período)
-  // ===========================
+  // AR: Parcelas (Previsto / A receber no período)
   const { data: arInstallmentsView = [] } = useQuery({
     queryKey: ["cashflow-ar-installments", period],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ar_installments_view")
+        .from("ar_installments_view" as any)
         .select(
           `
           id,
@@ -222,7 +125,7 @@ export function AdminCashFlowTab() {
           due_date,
           amount,
           status,
-          paid_amount,
+          received_amount,
           open_amount
         `
         )
@@ -230,11 +133,8 @@ export function AdminCashFlowTab() {
         .lte("due_date", endDate)
         .order("due_date", { ascending: true });
 
-      if (error) {
-        console.error("cashflow-ar-installments", error);
-        return [] as ARInstallmentViewRow[];
-      }
-      return (data ?? []) as ARInstallmentViewRow[];
+      if (error) return [];
+      return data ?? [];
     },
   });
 
@@ -244,8 +144,9 @@ export function AdminCashFlowTab() {
   const { data: apPayments = [] } = useQuery({
     queryKey: ["cashflow-ap-payments", period],
     queryFn: async () => {
+      // AP: ajuste aqui se seu schema tiver nomes diferentes
       const { data, error } = await supabase
-        .from("ap_payments")
+        .from("ap_payments" as any) // AP:
         .select(
           `
           id,
@@ -262,32 +163,28 @@ export function AdminCashFlowTab() {
             ap_bills(
               id,
               description,
-              vendor_id,
-              ap_vendors(name)
+              supplier_id,
+              ap_suppliers(name)
             )
           )
         `
         )
-        .gte("paid_at", startISO)
+        .gte("paid_at", startISO) // AP: paid_at
         .lte("paid_at", endISO)
         .order("paid_at", { ascending: false });
 
-      if (error) {
-        console.error("cashflow-ap-payments", error);
-        return [] as APPaymentRow[];
-      }
-      return (data ?? []) as APPaymentRow[];
+      if (error) return [];
+      return data ?? [];
     },
   });
 
-  // ===========================
-  // AP: Previsto (parcelas no período)
-  // ===========================
+  // AP: Parcelas (Previsto / A pagar no período)
   const { data: apInstallmentsView = [] } = useQuery({
     queryKey: ["cashflow-ap-installments", period],
     queryFn: async () => {
+      // AP: se você ainda não criou a view do AP, crie (igual AR) ou mude pra ap_installments + join payments
       const { data, error } = await supabase
-        .from("ap_installments_view")
+        .from("ap_installments_view" as any) // AP:
         .select(
           `
           id,
@@ -304,17 +201,16 @@ export function AdminCashFlowTab() {
         .lte("due_date", endDate)
         .order("due_date", { ascending: true });
 
-      if (error) {
-        console.error("cashflow-ap-installments", error);
-        return [] as APInstallmentViewRow[];
-      }
-      return (data ?? []) as APInstallmentViewRow[];
+      if (error) return [];
+      return data ?? [];
     },
   });
 
   // ===========================
-  // LEGADO (opcional)
+  // LEGADO (opcional / complemento)
   // ===========================
+
+  // Orders (legado): cuidado para não duplicar se já existir AR invoice ligado ao order_id
   const { data: orders = [] } = useQuery({
     queryKey: ["cashflow-orders-legacy", period],
     queryFn: async () => {
@@ -325,15 +221,13 @@ export function AdminCashFlowTab() {
         .lte("created_at", endISO)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("cashflow-orders-legacy", error);
-        return [];
-      }
+      if (error) return [];
       return data ?? [];
     },
     enabled: includeLegacyOrders,
   });
 
+  // Expenses (legado)
   const { data: expenses = [] } = useQuery({
     queryKey: ["cashflow-expenses-legacy", period],
     queryFn: async () => {
@@ -344,15 +238,13 @@ export function AdminCashFlowTab() {
         .lte("expense_date", endDate)
         .order("expense_date", { ascending: false });
 
-      if (error) {
-        console.error("cashflow-expenses-legacy", error);
-        return [];
-      }
+      if (error) return [];
       return data ?? [];
     },
     enabled: includeLegacyExpenses,
   });
 
+  // Movimentos de insumo (legado) — compras “entrada” como saída de caixa (se ainda usa isso)
   const { data: movements = [] } = useQuery({
     queryKey: ["cashflow-movements-legacy", period],
     queryFn: async () => {
@@ -363,15 +255,13 @@ export function AdminCashFlowTab() {
         .lte("created_at", endISO)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("cashflow-movements-legacy", error);
-        return [];
-      }
+      if (error) return [];
       return data ?? [];
     },
     enabled: includeLegacyMaterialPurchases,
   });
 
+  // Produção (CPV custo médio) - informativo, NÃO é caixa
   const { data: batches = [] } = useQuery({
     queryKey: ["cashflow-batches", period],
     queryFn: async () => {
@@ -382,10 +272,7 @@ export function AdminCashFlowTab() {
         .lte("created_at", endISO)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("cashflow-batches", error);
-        return [];
-      }
+      if (error) return [];
       return data ?? [];
     },
   });
@@ -395,67 +282,63 @@ export function AdminCashFlowTab() {
   // ===========================
   const summary = useMemo(() => {
     // AR caixa
-    const receivedCash = (arPayments as ARPaymentRow[]).reduce((s, p) => s + safeNum(p.amount), 0);
+    const receivedCash = arPayments.reduce((s: number, p: any) => s + safeNum(p.amount), 0);
 
-    // AR previsto: saldo aberto no período
-    const arDueOpen = (arInstallmentsView as ARInstallmentViewRow[])
-      .filter((i) => !isCanceled(i.status))
-      .reduce((s, i) => s + safeNum(i.open_amount), 0);
+    // AR previsto (somente saldo em aberto no período)
+    const arDueOpen = arInstallmentsView
+      .filter((i: any) => String(i.status ?? "").toLowerCase() !== "cancelado")
+      .reduce((s: number, i: any) => s + safeNum(i.open_amount), 0);
 
     // AP caixa
-    const paidCash = (apPayments as APPaymentRow[]).reduce((s, p) => s + safeNum(p.amount), 0);
+    const paidCash = apPayments.reduce((s: number, p: any) => s + safeNum(p.amount), 0);
 
     // AP previsto
-    const apDueOpen = (apInstallmentsView as APInstallmentViewRow[])
-      .filter((i) => !isCanceled(i.status))
-      .reduce((s, i) => s + safeNum(i.open_amount), 0);
+    const apDueOpen = apInstallmentsView
+      .filter((i: any) => String(i.status ?? "").toLowerCase() !== "cancelado")
+      .reduce((s: number, i: any) => s + safeNum(i.open_amount), 0);
 
-    // LEGADO (evitar duplicar orders que já viraram AR via order_id)
+    // LEGADO (sem duplicar orders com AR)
     const linkedOrderIds = new Set<string>();
-    for (const pay of arPayments as ARPaymentRow[]) {
-      const orderId = pay?.ar_installments?.ar_invoices?.order_id;
+    for (const pay of arPayments as any[]) {
+      const orderId = (pay as any)?.ar_installments?.ar_invoices?.order_id;
       if (orderId) linkedOrderIds.add(String(orderId));
     }
 
     const legacyOrdersPaid = includeLegacyOrders
-      ? (orders as any[])
-          .filter((o) => String(o.payment_status ?? "").toLowerCase() === "pago")
-          .filter((o) => !linkedOrderIds.has(String(o.id)))
-          .reduce((s, o) => s + safeNum(o.total), 0)
+      ? orders
+          .filter((o: any) => String(o.payment_status).toLowerCase() === "pago")
+          .filter((o: any) => !linkedOrderIds.has(String(o.id))) // evita duplicar
+          .reduce((s: number, o: any) => s + safeNum(o.total), 0)
       : 0;
 
     const legacyOrdersPending = includeLegacyOrders
-      ? (orders as any[])
-          .filter((o) => String(o.payment_status ?? "").toLowerCase() === "aguardando")
-          .filter((o) => !linkedOrderIds.has(String(o.id)))
-          .reduce((s, o) => s + safeNum(o.total), 0)
+      ? orders
+          .filter((o: any) => String(o.payment_status).toLowerCase() === "aguardando")
+          .filter((o: any) => !linkedOrderIds.has(String(o.id)))
+          .reduce((s: number, o: any) => s + safeNum(o.total), 0)
       : 0;
 
-    const legacyExpenses = includeLegacyExpenses
-      ? (expenses as any[]).reduce((s, e) => s + safeNum(e.amount), 0)
-      : 0;
+    const legacyExpenses = includeLegacyExpenses ? expenses.reduce((s: number, e: any) => s + safeNum(e.amount), 0) : 0;
 
     const legacyMaterialPurchases = includeLegacyMaterialPurchases
-      ? (movements as any[])
-          .filter((m) => String(m.movement_type ?? "").toLowerCase() === "entrada")
-          .reduce((s, m) => {
-            const totalCost =
-              m.total_cost != null
-                ? safeNum(m.total_cost)
-                : safeNum(m.quantity) * safeNum(m.cost_per_unit_at_time);
+      ? movements
+          .filter((m: any) => String(m.movement_type).toLowerCase() === "entrada")
+          .reduce((s: number, m: any) => {
+            const totalCost = m.total_cost != null ? safeNum(m.total_cost) : safeNum(m.quantity) * safeNum(m.cost_per_unit_at_time);
             return s + totalCost;
           }, 0)
       : 0;
 
     // CPV (informativo)
-    const cpvTotal = (batches as any[])
-      .filter((b) => {
+    const cpvAvgCost = batches
+      .filter((b: any) => {
         const s = String(b.status ?? "").toLowerCase();
         const sn = String(b.status_new ?? "").toLowerCase();
         return s !== "estornado" && sn !== "estornado";
       })
-      .reduce((s, b) => s + safeNum(b.total_cost), 0);
+      .reduce((s: number, b: any) => s + safeNum(b.total_cost), 0);
 
+    // Caixa “real”
     const inflowsCash = receivedCash + legacyOrdersPaid;
     const outflowsCash = paidCash + legacyExpenses + legacyMaterialPurchases;
     const netCashFlow = inflowsCash - outflowsCash;
@@ -463,6 +346,7 @@ export function AdminCashFlowTab() {
     return {
       receivedCash,
       arDueOpen,
+
       paidCash,
       apDueOpen,
 
@@ -475,7 +359,7 @@ export function AdminCashFlowTab() {
       outflowsCash,
       netCashFlow,
 
-      cpvTotal,
+      cpvAvgCost,
     };
   }, [
     arPayments,
@@ -519,6 +403,7 @@ export function AdminCashFlowTab() {
             </SelectContent>
           </Select>
 
+          {/* toggles simples (sem componente extra) */}
           <div className="flex flex-wrap gap-2">
             <Badge
               variant={includeLegacyOrders ? "default" : "outline"}
@@ -550,7 +435,7 @@ export function AdminCashFlowTab() {
         </div>
       </div>
 
-      {/* Cards */}
+      {/* Cards (Caixa + Previsto) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -573,7 +458,7 @@ export function AdminCashFlowTab() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{formatCurrencyBRL(summary.arDueOpen)}</div>
-            <p className="text-xs text-muted-foreground">Saldo das parcelas com vencimento no período</p>
+            <p className="text-xs text-muted-foreground">Saldo das parcelas no período</p>
           </CardContent>
         </Card>
 
@@ -599,18 +484,19 @@ export function AdminCashFlowTab() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{formatCurrencyBRL(summary.apDueOpen)}</div>
-            <p className="text-xs text-muted-foreground">Saldo das parcelas com vencimento no período</p>
+            <p className="text-xs text-muted-foreground">Saldo das parcelas no período</p>
           </CardContent>
         </Card>
 
+        {/* Informativo: CPV */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">CPV (informativo)</CardTitle>
+            <CardTitle className="text-sm font-medium">CPV (custo médio)</CardTitle>
             <Factory className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrencyBRL(summary.cpvTotal)}</div>
-            <p className="text-xs text-muted-foreground">Não impacta caixa (DRE)</p>
+            <div className="text-2xl font-bold">{formatCurrencyBRL(summary.cpvAvgCost)}</div>
+            <p className="text-xs text-muted-foreground">Informativo (DRE)</p>
           </CardContent>
         </Card>
 
@@ -630,7 +516,7 @@ export function AdminCashFlowTab() {
 
       {/* Listas */}
       <div className="grid gap-4 md:grid-cols-4">
-        {/* Recebimentos (AR) */}
+        {/* Recebimentos */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -640,7 +526,7 @@ export function AdminCashFlowTab() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {(arPayments as ARPaymentRow[]).slice(0, 10).map((p) => {
+              {arPayments.slice(0, 10).map((p: any) => {
                 const d = safeDate(p.received_at);
                 const cust = p?.ar_installments?.ar_invoices?.ar_customers?.name ?? "Cliente";
                 const desc = p?.ar_installments?.ar_invoices?.description ?? "Recebimento";
@@ -660,14 +546,12 @@ export function AdminCashFlowTab() {
                   </div>
                 );
               })}
-              {(arPayments as ARPaymentRow[]).length === 0 && (
-                <p className="text-muted-foreground text-sm">Nenhum recebimento no período</p>
-              )}
+              {arPayments.length === 0 && <p className="text-muted-foreground text-sm">Nenhum recebimento no período</p>}
             </div>
           </CardContent>
         </Card>
 
-        {/* Pagamentos (AP) */}
+        {/* Pagamentos */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -677,15 +561,15 @@ export function AdminCashFlowTab() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {(apPayments as APPaymentRow[]).slice(0, 10).map((p) => {
-                const d = safeDate(p.paid_at);
-                const vendor = p?.ap_installments?.ap_bills?.ap_vendors?.name ?? "Fornecedor";
+              {apPayments.slice(0, 10).map((p: any) => {
+                const d = safeDate(p.paid_at); // AP: paid_at
+                const supp = p?.ap_installments?.ap_bills?.ap_suppliers?.name ?? "Fornecedor";
                 const desc = p?.ap_installments?.ap_bills?.description ?? "Pagamento";
                 const method = p?.ap_payment_methods?.name ? ` • ${p.ap_payment_methods.name}` : "";
                 return (
                   <div key={p.id} className="flex items-center justify-between border-b pb-2">
                     <div>
-                      <p className="font-medium">{vendor}</p>
+                      <p className="font-medium">{supp}</p>
                       <p className="text-xs text-muted-foreground">
                         {desc}
                         {method}
@@ -697,14 +581,12 @@ export function AdminCashFlowTab() {
                   </div>
                 );
               })}
-              {(apPayments as APPaymentRow[]).length === 0 && (
-                <p className="text-muted-foreground text-sm">Nenhum pagamento no período</p>
-              )}
+              {apPayments.length === 0 && <p className="text-muted-foreground text-sm">Nenhum pagamento no período</p>}
             </div>
           </CardContent>
         </Card>
 
-        {/* Previsto (A Receber) */}
+        {/* A receber previsto */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -714,11 +596,11 @@ export function AdminCashFlowTab() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {(arInstallmentsView as ARInstallmentViewRow[])
-                .filter((i) => !isCanceled(i.status))
-                .filter((i) => safeNum(i.open_amount) > 0)
+              {arInstallmentsView
+                .filter((i: any) => String(i.status ?? "").toLowerCase() !== "cancelado")
+                .filter((i: any) => safeNum(i.open_amount) > 0)
                 .slice(0, 10)
-                .map((i) => {
+                .map((i: any) => {
                   const d = safeDate(i.due_date);
                   return (
                     <div key={i.id} className="flex items-center justify-between border-b pb-2">
@@ -732,14 +614,14 @@ export function AdminCashFlowTab() {
                     </div>
                   );
                 })}
-
-              {(arInstallmentsView as ARInstallmentViewRow[]).filter((i) => !isCanceled(i.status) && safeNum(i.open_amount) > 0)
-                .length === 0 && <p className="text-muted-foreground text-sm">Nada a receber no período</p>}
+              {arInstallmentsView.filter((i: any) => String(i.status ?? "").toLowerCase() !== "cancelado" && safeNum(i.open_amount) > 0).length === 0 && (
+                <p className="text-muted-foreground text-sm">Nada a receber no período</p>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Previsto (A Pagar) */}
+        {/* A pagar previsto */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -749,11 +631,11 @@ export function AdminCashFlowTab() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3 max-h-80 overflow-y-auto">
-              {(apInstallmentsView as APInstallmentViewRow[])
-                .filter((i) => !isCanceled(i.status))
-                .filter((i) => safeNum(i.open_amount) > 0)
+              {apInstallmentsView
+                .filter((i: any) => String(i.status ?? "").toLowerCase() !== "cancelado")
+                .filter((i: any) => safeNum(i.open_amount) > 0)
                 .slice(0, 10)
-                .map((i) => {
+                .map((i: any) => {
                   const d = safeDate(i.due_date);
                   return (
                     <div key={i.id} className="flex items-center justify-between border-b pb-2">
@@ -767,9 +649,9 @@ export function AdminCashFlowTab() {
                     </div>
                   );
                 })}
-
-              {(apInstallmentsView as APInstallmentViewRow[]).filter((i) => !isCanceled(i.status) && safeNum(i.open_amount) > 0)
-                .length === 0 && <p className="text-muted-foreground text-sm">Nada a pagar no período</p>}
+              {apInstallmentsView.filter((i: any) => String(i.status ?? "").toLowerCase() !== "cancelado" && safeNum(i.open_amount) > 0).length === 0 && (
+                <p className="text-muted-foreground text-sm">Nada a pagar no período</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -777,7 +659,7 @@ export function AdminCashFlowTab() {
 
       <div className="text-xs text-muted-foreground">
         Obs.: Para ficar “contábil perfeito”, o ideal é: <strong>compras de insumo</strong> e <strong>despesas</strong> gerarem títulos no AP automaticamente.
-        Por enquanto, os toggles permitem usar o legado como complemento sem duplicar com o AR/AP.
+        Por enquanto, os toggles permitem usar o legado como complemento sem quebrar seu fluxo.
       </div>
     </div>
   );

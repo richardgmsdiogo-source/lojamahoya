@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          requirement_type: string
+          requirement_value: number | null
+          updated_at: string | null
+          xp_reward: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          requirement_type?: string
+          requirement_value?: number | null
+          updated_at?: string | null
+          xp_reward?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          requirement_type?: string
+          requirement_value?: number | null
+          updated_at?: string | null
+          xp_reward?: number | null
+        }
+        Relationships: []
+      }
       ap_bills: {
         Row: {
           category: string
@@ -451,6 +490,7 @@ export type Database = {
           emoji: string | null
           id: string
           image_url: string | null
+          is_active: boolean
           name: string
           slug: string
           updated_at: string | null
@@ -461,6 +501,7 @@ export type Database = {
           emoji?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean
           name: string
           slug: string
           updated_at?: string | null
@@ -471,6 +512,7 @@ export type Database = {
           emoji?: string | null
           id?: string
           image_url?: string | null
+          is_active?: boolean
           name?: string
           slug?: string
           updated_at?: string | null
@@ -908,6 +950,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      player_titles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          level: number
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          level: number
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          level?: number
+          title?: string
+        }
+        Relationships: []
       }
       production_batch_items: {
         Row: {
@@ -1351,6 +1417,74 @@ export type Database = {
           text?: string
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          id: string
+          unlocked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          id?: string
+          unlocked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          id?: string
+          unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_benefits: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          discount_fixed: number | null
+          discount_percent: number | null
+          id: string
+          is_used: boolean | null
+          name: string
+          used_at: string | null
+          user_id: string
+          valid_until: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          discount_fixed?: number | null
+          discount_percent?: number | null
+          id?: string
+          is_used?: boolean | null
+          name: string
+          used_at?: string | null
+          user_id: string
+          valid_until?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          discount_fixed?: number | null
+          discount_percent?: number | null
+          id?: string
+          is_used?: boolean | null
+          name?: string
+          used_at?: string | null
+          user_id?: string
+          valid_until?: string | null
         }
         Relationships: []
       }

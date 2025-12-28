@@ -27,7 +27,7 @@ import {
   Trash2,
   CheckCircle2,
   AlertTriangle,
-  Link2,
+  Link2
 } from "lucide-react";
 
 type PaymentMethodType = "pix" | "boleto" | "transferencia" | "cartao" | "dinheiro" | "outros";
@@ -59,22 +59,23 @@ type Invoice = {
   description: string;
   category: string | null;
   issue_date: string; // date
-  total_amount: number;
+  total_amount: number; // numeric from supabase
   status: InvoiceStatus;
   order_id: string | null;
   default_payment_method_id: string | null;
   notes: string | null;
   created_at: string;
   ar_customers?: { name: string } | null;
+  ar_payment_methods?: { name: string } | null;
 };
 
 type InstallmentView = {
   id: string;
   invoice_id: string;
   installment_no: number;
-  due_date: string; // date
+  due_date: string;
   amount: number;
-  status: InstallmentStatus; // vem da view
+  status: InstallmentStatus;
   created_at: string;
   paid_amount: number;
   open_amount: number;
@@ -121,23 +122,15 @@ export const AdminContasReceberTab = () => {
   const [tab, setTab] = useState<"titulos" | "parcelas" | "clientes" | "metodos">("titulos");
   const [search, setSearch] = useState("");
 
+  // Dialogs
   const [openCustomer, setOpenCustomer] = useState(false);
   const [openMethod, setOpenMethod] = useState(false);
   const [openInvoice, setOpenInvoice] = useState(false);
   const [openReceive, setOpenReceive] = useState<{ installment: InstallmentView; invoice: Invoice } | null>(null);
 
-  const [customerForm, setCustomerForm] = useState({
-    name: "",
-    document: "",
-    email: "",
-    phone: "",
-    notes: "",
-  });
-
-  const [methodForm, setMethodForm] = useState({
-    name: "",
-    type: "pix" as PaymentMethodType,
-  });
+  // Forms
+  const [customerForm, setCustomerForm] = useState({ name: "", document: "", email: "", phone: "", notes: "" });
+  const [methodForm, setMethodForm] = useState({ name: "", type: "pix" as PaymentMethodType });
 
   const [invoiceForm, setInvoiceForm] = useState({
     customer_id: "",
@@ -148,6 +141,7 @@ export const AdminContasReceberTab = () => {
     order_id: "",
     default_payment_method_id: "none",
     notes: "",
+
     installments_count: 1,
     first_due_date: format(new Date(), "yyyy-MM-dd"),
     interval_days: 30,
@@ -161,24 +155,22 @@ export const AdminContasReceberTab = () => {
     notes: "",
   });
 
-  // =========================
   // Queries
-  // =========================
   const customersQ = useQuery({
     queryKey: ["ar-customers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ar_customers").select("*").order("name");
+      const { data, error } = await supabase.from("ar_customers" as any).select("*").order("name");
       if (error) throw error;
-      return (data || []) as Customer[];
+      return (data || []) as unknown as Customer[];
     },
   });
 
   const methodsQ = useQuery({
     queryKey: ["ar-methods"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ar_payment_methods").select("*").order("name");
+      const { data, error } = await supabase.from("ar_payment_methods" as any).select("*").order("name");
       if (error) throw error;
-      return (data || []) as PaymentMethod[];
+      return (data || []) as unknown as PaymentMethod[];
     },
   });
 
@@ -186,21 +178,29 @@ export const AdminContasReceberTab = () => {
     queryKey: ["ar-invoices"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ar_invoices")
-        .select(`*, ar_customers(name)`)
+        .from("ar_invoices" as any)
+        .select(`
+          *,
+          ar_customers(name),
+          ar_payment_methods(name)
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []) as Invoice[];
+      return (data || []) as unknown as Invoice[];
     },
   });
 
   const installmentsQ = useQuery({
     queryKey: ["ar-installments-view"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("ar_installments_view").select("*").order("due_date", { ascending: true });
+      const { data, error } = await supabase
+        .from("ar_installments_view" as any)
+        .select("*")
+        .order("due_date", { ascending: true });
+
       if (error) throw error;
-      return (data || []) as InstallmentView[];
+      return (data || []) as unknown as InstallmentView[];
     },
   });
 
@@ -208,16 +208,19 @@ export const AdminContasReceberTab = () => {
     queryKey: ["ar-payments"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ar_payments")
-        .select(`*, ar_payment_methods(name)`)
+        .from("ar_payments" as any)
+        .select(`
+          *,
+          ar_payment_methods(name)
+        `)
         .order("received_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []) as Payment[];
+      return (data || []) as unknown as Payment[];
     },
   });
 
-  // Opcional: listar últimos pedidos (se existir tabela orders)
+  // opcional: listar orders pra vínculo manual (não obrigatório)
   const ordersQ = useQuery({
     queryKey: ["ar-orders-basic"],
     queryFn: async () => {
@@ -227,6 +230,7 @@ export const AdminContasReceberTab = () => {
         .order("created_at", { ascending: false })
         .limit(50);
 
+      // se sua tabela orders não tiver esses campos, você ajusta aqui
       if (error) return [];
       return data || [];
     },
@@ -255,20 +259,7 @@ export const AdminContasReceberTab = () => {
     return m;
   }, [installments]);
 
-  const refreshAll = async () => {
-    await Promise.all([
-      qc.invalidateQueries({ queryKey: ["ar-customers"] }),
-      qc.invalidateQueries({ queryKey: ["ar-methods"] }),
-      qc.invalidateQueries({ queryKey: ["ar-invoices"] }),
-      qc.invalidateQueries({ queryKey: ["ar-installments-view"] }),
-      qc.invalidateQueries({ queryKey: ["ar-payments"] }),
-      qc.invalidateQueries({ queryKey: ["ar-orders-basic"] }),
-    ]);
-  };
-
-  // =========================
-  // KPI
-  // =========================
+  // KPIs
   const kpi = useMemo(() => {
     const open = installments.reduce((sum, it) => sum + safeNum(it.open_amount), 0);
     const received = installments.reduce((sum, it) => sum + safeNum(it.paid_amount), 0);
@@ -281,9 +272,7 @@ export const AdminContasReceberTab = () => {
     return { open, received, overdue };
   }, [installments]);
 
-  // =========================
   // Filters
-  // =========================
   const invoicesFiltered = useMemo(() => {
     const s = search.trim().toLowerCase();
     if (!s) return invoices;
@@ -293,7 +282,7 @@ export const AdminContasReceberTab = () => {
         cust.includes(s) ||
         i.description.toLowerCase().includes(s) ||
         (i.category || "").toLowerCase().includes(s) ||
-        String(i.status).toLowerCase().includes(s)
+        i.status.toLowerCase().includes(s)
       );
     });
   }, [invoices, search]);
@@ -309,35 +298,15 @@ export const AdminContasReceberTab = () => {
     });
   }, [installments, search, invoiceById]);
 
-  // =========================
-  // Helpers (RPC)
-  // =========================
-  const setInvoiceStatus = async (invoiceId: string, status: InvoiceStatus) => {
-    const { error } = await supabase.rpc("ar_set_invoice_status_text", {
-      p_invoice_id: invoiceId,
-      p_status: status,
-    });
-    if (error) throw error;
-  };
-
-  const recomputeInvoiceStatus = async (invoiceId: string) => {
-    const inst = (installmentsByInvoice.get(invoiceId) || []).filter((i) => i.status !== "cancelado");
-    const open = inst.reduce((s, i) => s + safeNum(i.open_amount), 0);
-    const received = inst.reduce((s, i) => s + safeNum(i.paid_amount), 0);
-
-    let status: InvoiceStatus = "aberto";
-    if (open <= 0 && inst.length > 0) status = "pago";
-    else if (received > 0 && open > 0) status = "parcial";
-
-    try {
-      await setInvoiceStatus(invoiceId, status);
-    } catch (e: any) {
-      toast({
-        title: "Erro",
-        description: e?.message || "Falha ao atualizar status do título.",
-        variant: "destructive",
-      });
-    }
+  const refreshAll = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["ar-customers"] }),
+      qc.invalidateQueries({ queryKey: ["ar-methods"] }),
+      qc.invalidateQueries({ queryKey: ["ar-invoices"] }),
+      qc.invalidateQueries({ queryKey: ["ar-installments-view"] }),
+      qc.invalidateQueries({ queryKey: ["ar-payments"] }),
+      qc.invalidateQueries({ queryKey: ["ar-orders-basic"] }),
+    ]);
   };
 
   // =========================
@@ -349,7 +318,7 @@ export const AdminContasReceberTab = () => {
       return;
     }
 
-    const { error } = await supabase.from("ar_customers").insert({
+    const { error } = await supabase.from("ar_customers" as any).insert({
       name: customerForm.name.trim(),
       document: customerForm.document.trim() || null,
       email: customerForm.email.trim() || null,
@@ -365,7 +334,7 @@ export const AdminContasReceberTab = () => {
     toast({ title: "Cliente criado" });
     setCustomerForm({ name: "", document: "", email: "", phone: "", notes: "" });
     setOpenCustomer(false);
-    await refreshAll();
+    refreshAll();
   };
 
   const createPaymentMethod = async () => {
@@ -374,7 +343,7 @@ export const AdminContasReceberTab = () => {
       return;
     }
 
-    const { error } = await supabase.from("ar_payment_methods").insert({
+    const { error } = await supabase.from("ar_payment_methods" as any).insert({
       name: methodForm.name.trim(),
       type: methodForm.type,
     });
@@ -384,10 +353,10 @@ export const AdminContasReceberTab = () => {
       return;
     }
 
-    toast({ title: "Forma criada" });
+    toast({ title: "Forma de recebimento criada" });
     setMethodForm({ name: "", type: "pix" });
     setOpenMethod(false);
-    await refreshAll();
+    refreshAll();
   };
 
   const createInvoiceWithInstallments = async () => {
@@ -396,36 +365,48 @@ export const AdminContasReceberTab = () => {
     const count = Math.max(1, Math.floor(safeNum(invoiceForm.installments_count)));
     const interval = Math.max(1, Math.floor(safeNum(invoiceForm.interval_days)));
 
-    if (!customerId) return toast({ title: "Erro", description: "Selecione um cliente.", variant: "destructive" });
-    if (!invoiceForm.description.trim()) return toast({ title: "Erro", description: "Descrição é obrigatória.", variant: "destructive" });
-    if (total <= 0) return toast({ title: "Erro", description: "Valor total precisa ser maior que 0.", variant: "destructive" });
-    if (!invoiceForm.first_due_date) return toast({ title: "Erro", description: "Informe o primeiro vencimento.", variant: "destructive" });
+    if (!customerId) {
+      toast({ title: "Erro", description: "Selecione um cliente.", variant: "destructive" });
+      return;
+    }
+    if (!invoiceForm.description.trim()) {
+      toast({ title: "Erro", description: "Descrição é obrigatória.", variant: "destructive" });
+      return;
+    }
+    if (total <= 0) {
+      toast({ title: "Erro", description: "Valor total precisa ser maior que 0.", variant: "destructive" });
+      return;
+    }
+    if (!invoiceForm.first_due_date) {
+      toast({ title: "Erro", description: "Informe o primeiro vencimento.", variant: "destructive" });
+      return;
+    }
 
     const pmId = invoiceForm.default_payment_method_id === "none" ? null : invoiceForm.default_payment_method_id;
     const orderId = invoiceForm.order_id.trim() ? invoiceForm.order_id.trim() : null;
 
     const { data: invData, error: invErr } = await supabase
-      .from("ar_invoices")
+      .from("ar_invoices" as any)
       .insert({
         customer_id: customerId,
         description: invoiceForm.description.trim(),
         category: invoiceForm.category.trim() || null,
         issue_date: invoiceForm.issue_date,
         total_amount: total,
+        status: "aberto",
         order_id: orderId,
         default_payment_method_id: pmId,
         notes: invoiceForm.notes.trim() || null,
-        // status fica no default do banco
       })
       .select("*")
       .single();
+    
+    const inv = invData as unknown as { id: string } | null;
 
-    if (invErr || !invData?.id) {
+    if (invErr || !inv) {
       toast({ title: "Erro", description: invErr?.message || "Falha ao criar título.", variant: "destructive" });
       return;
     }
-
-    const invoiceId = String(invData.id);
 
     const base = total / count;
     const installmentsPayload = Array.from({ length: count }).map((_, idx) => {
@@ -435,23 +416,25 @@ export const AdminContasReceberTab = () => {
       const amount = idx === count - 1 ? total - base * (count - 1) : base;
 
       return {
-        invoice_id: invoiceId,
+        invoice_id: inv.id,
         installment_no: no,
         due_date: format(due, "yyyy-MM-dd"),
         amount: Number(amount.toFixed(2)),
-        status: "aberto",
+        status: "aberto" as InstallmentStatus,
       };
     });
 
-    const { error: instErr } = await supabase.from("ar_installments").insert(installmentsPayload);
-
+    const { error: instErr } = await supabase.from("ar_installments" as any).insert(installmentsPayload);
     if (instErr) {
-      toast({ title: "Erro", description: `Título criado, mas falhou ao gerar parcelas: ${instErr.message}`, variant: "destructive" });
+      toast({
+        title: "Erro",
+        description: `Título criado, mas falhou ao gerar parcelas: ${instErr.message}`,
+        variant: "destructive",
+      });
       return;
     }
 
     toast({ title: "Título criado", description: `${count} parcela(s) gerada(s).` });
-
     setOpenInvoice(false);
     setInvoiceForm({
       customer_id: "",
@@ -466,10 +449,20 @@ export const AdminContasReceberTab = () => {
       first_due_date: format(new Date(), "yyyy-MM-dd"),
       interval_days: 30,
     });
+    refreshAll();
+  };
 
-    await refreshAll();
-    await recomputeInvoiceStatus(invoiceId);
-    await refreshAll();
+  const recomputeInvoiceStatus = async (invoiceId: string) => {
+    const inst = (installmentsByInvoice.get(invoiceId) || []).filter((i) => i.status !== "cancelado");
+    const open = inst.reduce((s, i) => s + safeNum(i.open_amount), 0);
+    const received = inst.reduce((s, i) => s + safeNum(i.paid_amount), 0);
+
+    let status: InvoiceStatus = "aberto";
+    if (open <= 0 && inst.length > 0) status = "pago";
+    else if (received > 0 && open > 0) status = "parcial";
+
+    const { error } = await supabase.from("ar_invoices" as any).update({ status }).eq("id", invoiceId);
+    if (error) console.error("recomputeInvoiceStatus", error);
   };
 
   const receiveInstallment = async () => {
@@ -483,7 +476,7 @@ export const AdminContasReceberTab = () => {
       return;
     }
 
-    const { error } = await supabase.from("ar_payments").insert({
+    const { error } = await supabase.from("ar_payments" as any).insert({
       installment_id: openReceive.installment.id,
       amount: Number(amount.toFixed(2)),
       received_at: receiveForm.received_at
@@ -500,16 +493,10 @@ export const AdminContasReceberTab = () => {
     }
 
     toast({ title: "Recebimento registrado" });
-
     const invId = openReceive.invoice.id;
+
     setOpenReceive(null);
-    setReceiveForm({
-      amount: "",
-      received_at: format(new Date(), "yyyy-MM-dd"),
-      payment_method_id: "none",
-      reference: "",
-      notes: "",
-    });
+    setReceiveForm({ amount: "", received_at: format(new Date(), "yyyy-MM-dd"), payment_method_id: "none", reference: "", notes: "" });
 
     await refreshAll();
     await recomputeInvoiceStatus(invId);
@@ -517,46 +504,34 @@ export const AdminContasReceberTab = () => {
   };
 
   const cancelInvoice = async (inv: Invoice) => {
-    try {
-      await setInvoiceStatus(inv.id, "cancelado");
-    } catch (e: any) {
-      toast({ title: "Erro", description: e?.message || "Falha ao cancelar título.", variant: "destructive" });
+    const { error: invErr } = await supabase.from("ar_invoices" as any).update({ status: "cancelado" }).eq("id", inv.id);
+    if (invErr) {
+      toast({ title: "Erro", description: invErr.message, variant: "destructive" });
       return;
     }
 
-    const { error: instErr } = await supabase
-      .from("ar_installments")
-      .update({ status: "cancelado" })
-      .eq("invoice_id", inv.id);
-
+    const { error: instErr } = await supabase.from("ar_installments" as any).update({ status: "cancelado" }).eq("invoice_id", inv.id);
     if (instErr) {
       toast({ title: "Erro", description: instErr.message, variant: "destructive" });
       return;
     }
 
     toast({ title: "Cancelado", description: "Título e parcelas cancelados." });
-    await refreshAll();
+    refreshAll();
   };
 
   const deleteInvoice = async (inv: Invoice) => {
-    const { error } = await supabase.from("ar_invoices").delete().eq("id", inv.id);
-
+    const { error } = await supabase.from("ar_invoices" as any).delete().eq("id", inv.id);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
       return;
     }
-
     toast({ title: "Excluído", description: "Título removido." });
-    await refreshAll();
+    refreshAll();
   };
 
   const invoiceStatusBadge = (status: InvoiceStatus) => {
-    if (status === "pago")
-      return (
-        <Badge className="gap-1">
-          <CheckCircle2 className="h-3 w-3" /> Pago
-        </Badge>
-      );
+    if (status === "pago") return <Badge className="gap-1"><CheckCircle2 className="h-3 w-3" /> Pago</Badge>;
     if (status === "parcial") return <Badge variant="secondary">Parcial</Badge>;
     if (status === "cancelado") return <Badge variant="destructive">Cancelado</Badge>;
     return <Badge variant="outline">Aberto</Badge>;
@@ -564,32 +539,17 @@ export const AdminContasReceberTab = () => {
 
   const installmentBadge = (it: InstallmentView) => {
     if (it.status === "cancelado") return <Badge variant="destructive">Cancelado</Badge>;
-
     const open = safeNum(it.open_amount);
-    if (open <= 0)
-      return (
-        <Badge className="gap-1">
-          <CheckCircle2 className="h-3 w-3" /> Pago
-        </Badge>
-      );
+    if (open <= 0) return <Badge className="gap-1"><CheckCircle2 className="h-3 w-3" /> Pago</Badge>;
 
     const overdue = isBefore(parseISO(it.due_date), startOfDay(new Date()));
-    if (overdue)
-      return (
-        <Badge variant="destructive" className="gap-1">
-          <AlertTriangle className="h-3 w-3" /> Atrasado
-        </Badge>
-      );
+    if (overdue) return <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" /> Atrasado</Badge>;
 
     return <Badge variant="outline">Aberto</Badge>;
   };
 
   const loading =
-    customersQ.isLoading ||
-    methodsQ.isLoading ||
-    invoicesQ.isLoading ||
-    installmentsQ.isLoading ||
-    paymentsQ.isLoading;
+    customersQ.isLoading || methodsQ.isLoading || invoicesQ.isLoading || installmentsQ.isLoading || paymentsQ.isLoading;
 
   return (
     <div className="space-y-4">
@@ -608,7 +568,9 @@ export const AdminContasReceberTab = () => {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>Novo cliente</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Novo cliente</DialogTitle>
+              </DialogHeader>
 
               <div className="space-y-3">
                 <div>
@@ -644,7 +606,7 @@ export const AdminContasReceberTab = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Nova forma */}
+          {/* Nova forma de recebimento */}
           <Dialog open={openMethod} onOpenChange={setOpenMethod}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2">
@@ -652,7 +614,9 @@ export const AdminContasReceberTab = () => {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
-              <DialogHeader><DialogTitle>Nova forma de recebimento</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Nova forma de recebimento</DialogTitle>
+              </DialogHeader>
 
               <div className="space-y-3">
                 <div>
@@ -663,10 +627,14 @@ export const AdminContasReceberTab = () => {
                 <div>
                   <Label>Tipo</Label>
                   <Select value={methodForm.type} onValueChange={(v) => setMethodForm({ ...methodForm, type: v as PaymentMethodType })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       {Object.keys(PM_TYPE_LABEL).map((k) => (
-                        <SelectItem key={k} value={k}>{PM_TYPE_LABEL[k as PaymentMethodType]}</SelectItem>
+                        <SelectItem key={k} value={k}>
+                          {PM_TYPE_LABEL[k as PaymentMethodType]}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -687,17 +655,23 @@ export const AdminContasReceberTab = () => {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Novo título a receber</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>Novo título a receber</DialogTitle>
+              </DialogHeader>
 
               <div className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-3">
                   <div>
                     <Label>Cliente *</Label>
                     <Select value={invoiceForm.customer_id} onValueChange={(v) => setInvoiceForm({ ...invoiceForm, customer_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
                       <SelectContent>
-                        {customers.filter((c) => c.is_active).map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        {customers.filter(c => c.is_active).map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -727,11 +701,16 @@ export const AdminContasReceberTab = () => {
 
                   <div>
                     <Label>Forma padrão</Label>
-                    <Select value={invoiceForm.default_payment_method_id} onValueChange={(v) => setInvoiceForm({ ...invoiceForm, default_payment_method_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                    <Select
+                      value={invoiceForm.default_payment_method_id}
+                      onValueChange={(v) => setInvoiceForm({ ...invoiceForm, default_payment_method_id: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="(opcional)" />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">(sem)</SelectItem>
-                        {methods.filter((m) => m.is_active).map((m) => (
+                        {methods.filter(m => m.is_active).map((m) => (
                           <SelectItem key={m.id} value={m.id}>
                             {m.name} ({PM_TYPE_LABEL[m.type]})
                           </SelectItem>
@@ -763,7 +742,12 @@ export const AdminContasReceberTab = () => {
                     </div>
                     <div>
                       <Label>Intervalo (dias)</Label>
-                      <Input type="number" min={1} value={invoiceForm.interval_days} onChange={(e) => setInvoiceForm({ ...invoiceForm, interval_days: Number(e.target.value) })} />
+                      <Input
+                        type="number"
+                        min={1}
+                        value={invoiceForm.interval_days}
+                        onChange={(e) => setInvoiceForm({ ...invoiceForm, interval_days: Number(e.target.value) })}
+                      />
                       <p className="text-xs text-muted-foreground mt-1">30 = mensal | 7 = semanal</p>
                     </div>
                   </CardContent>
@@ -777,17 +761,18 @@ export const AdminContasReceberTab = () => {
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <Label>ID do pedido (order_id)</Label>
-                    <Input value={invoiceForm.order_id} onChange={(e) => setInvoiceForm({ ...invoiceForm, order_id: e.target.value })} placeholder="Cole o UUID do pedido (opcional)" />
-
+                    <Input
+                      value={invoiceForm.order_id}
+                      onChange={(e) => setInvoiceForm({ ...invoiceForm, order_id: e.target.value })}
+                      placeholder="Cole o UUID do pedido (opcional)"
+                    />
                     {orders.length > 0 && (
                       <div className="text-xs text-muted-foreground">
                         Dica: últimos pedidos (para copiar o id):
                         <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
                           {orders.map((o: any) => (
                             <div key={o.id} className="flex justify-between gap-2 p-2 rounded bg-muted/50">
-                              <span>
-                                #{o.order_number ?? "?"} • {formatCurrencyBRL(safeNum(o.total))} • {o.payment_status ?? "-"}
-                              </span>
+                              <span>#{o.order_number ?? "?"} • {formatCurrencyBRL(safeNum(o.total))} • {o.payment_status ?? "-"}</span>
                               <span className="font-mono">{String(o.id).slice(0, 8)}…</span>
                             </div>
                           ))}
@@ -861,7 +846,9 @@ export const AdminContasReceberTab = () => {
         {/* TÍTULOS */}
         <TabsContent value="titulos">
           <Card>
-            <CardHeader><CardTitle>Títulos ({invoicesFiltered.length})</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Títulos ({invoicesFiltered.length})</CardTitle>
+            </CardHeader>
             <CardContent>
               {loading ? (
                 <p className="text-sm text-muted-foreground text-center py-6">Carregando...</p>
@@ -882,18 +869,13 @@ export const AdminContasReceberTab = () => {
                               <p className="font-medium">{inv.ar_customers?.name}</p>
                               {invoiceStatusBadge(inv.status)}
                               {inv.category && <Badge variant="outline">{inv.category}</Badge>}
-                              {inv.order_id && (
-                                <Badge variant="secondary" className="gap-1">
-                                  <Link2 className="h-3 w-3" /> Pedido
-                                </Badge>
-                              )}
+                              {inv.order_id && <Badge variant="secondary" className="gap-1"><Link2 className="h-3 w-3" /> Pedido</Badge>}
                             </div>
 
                             <p className="text-sm">{inv.description}</p>
 
                             <p className="text-xs text-muted-foreground">
-                              Emissão: {monthKeyBR(inv.issue_date)} • Total:{" "}
-                              <strong>{formatCurrencyBRL(safeNum(inv.total_amount))}</strong> • Recebido:{" "}
+                              Emissão: {monthKeyBR(inv.issue_date)} • Total: <strong>{formatCurrencyBRL(safeNum(inv.total_amount))}</strong> • Recebido:{" "}
                               <strong className="text-green-600">{formatCurrencyBRL(received)}</strong> • Aberto:{" "}
                               <strong className={open > 0 ? "text-destructive" : "text-green-600"}>{formatCurrencyBRL(open)}</strong>
                             </p>
@@ -914,8 +896,7 @@ export const AdminContasReceberTab = () => {
                         {inst.length > 0 && (
                           <div className="mt-3 grid gap-2 md:grid-cols-2">
                             {inst
-                              .slice()
-                              .sort((a, b) => a.installment_no - b.installment_no)
+                              .sort((a, c) => a.installment_no - c.installment_no)
                               .map((it) => {
                                 const openAmt = safeNum(it.open_amount);
                                 const overdue =
@@ -926,9 +907,7 @@ export const AdminContasReceberTab = () => {
                                 return (
                                   <div
                                     key={it.id}
-                                    className={`p-3 rounded-lg border ${
-                                      overdue ? "border-destructive/40 bg-destructive/5" : "border-border bg-background"
-                                    }`}
+                                    className={`p-3 rounded-lg border ${overdue ? "border-destructive/40 bg-destructive/5" : "border-border bg-background"}`}
                                   >
                                     <div className="flex items-start justify-between gap-2">
                                       <div>
@@ -938,8 +917,7 @@ export const AdminContasReceberTab = () => {
                                         </p>
                                         <p className="text-xs text-muted-foreground">
                                           Valor: {formatCurrencyBRL(safeNum(it.amount))} • Recebido:{" "}
-                                          <span className="text-green-600">{formatCurrencyBRL(safeNum(it.paid_amount))}</span> •
-                                          Aberto:{" "}
+                                          <span className="text-green-600">{formatCurrencyBRL(safeNum(it.paid_amount))}</span> • Aberto:{" "}
                                           <span className={openAmt > 0 ? "text-destructive" : "text-green-600"}>
                                             {formatCurrencyBRL(openAmt)}
                                           </span>
@@ -954,7 +932,7 @@ export const AdminContasReceberTab = () => {
                                           onClick={() => {
                                             setOpenReceive({ installment: it, invoice: inv });
                                             setReceiveForm({
-                                              amount: openAmt > 0 ? openAmt.toFixed(2) : "",
+                                              amount: String(openAmt > 0 ? openAmt.toFixed(2) : ""),
                                               received_at: format(new Date(), "yyyy-MM-dd"),
                                               payment_method_id: (inv.default_payment_method_id || "none") as any,
                                               reference: "",
@@ -984,7 +962,9 @@ export const AdminContasReceberTab = () => {
         {/* PARCELAS */}
         <TabsContent value="parcelas">
           <Card>
-            <CardHeader><CardTitle>Parcelas ({installmentsFiltered.length})</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Parcelas ({installmentsFiltered.length})</CardTitle>
+            </CardHeader>
             <CardContent>
               {loading ? (
                 <p className="text-sm text-muted-foreground text-center py-6">Carregando...</p>
@@ -1003,13 +983,13 @@ export const AdminContasReceberTab = () => {
                     return (
                       <div
                         key={it.id}
-                        className={`p-3 rounded-lg ${
-                          overdue ? "bg-destructive/5 border border-destructive/20" : "bg-muted/50"
-                        }`}
+                        className={`p-3 rounded-lg ${overdue ? "bg-destructive/5 border border-destructive/20" : "bg-muted/50"}`}
                       >
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                           <div>
-                            <p className="font-medium">{inv?.ar_customers?.name} • {inv?.description}</p>
+                            <p className="font-medium">
+                              {inv?.ar_customers?.name} • {inv?.description}
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               Parcela {it.installment_no} • Venc:{" "}
                               {format(parseISO(it.due_date), "dd/MM/yyyy", { locale: ptBR })} •
@@ -1028,7 +1008,7 @@ export const AdminContasReceberTab = () => {
                                 if (!inv) return;
                                 setOpenReceive({ installment: it, invoice: inv });
                                 setReceiveForm({
-                                  amount: openAmt > 0 ? openAmt.toFixed(2) : "",
+                                  amount: String(openAmt > 0 ? openAmt.toFixed(2) : ""),
                                   received_at: format(new Date(), "yyyy-MM-dd"),
                                   payment_method_id: (inv.default_payment_method_id || "none") as any,
                                   reference: "",
@@ -1053,7 +1033,9 @@ export const AdminContasReceberTab = () => {
         {/* CLIENTES */}
         <TabsContent value="clientes">
           <Card>
-            <CardHeader><CardTitle>Clientes ({customers.length})</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Clientes ({customers.length})</CardTitle>
+            </CardHeader>
             <CardContent>
               {loading ? (
                 <p className="text-sm text-muted-foreground text-center py-6">Carregando...</p>
@@ -1084,7 +1066,9 @@ export const AdminContasReceberTab = () => {
         {/* FORMAS */}
         <TabsContent value="metodos">
           <Card>
-            <CardHeader><CardTitle>Formas de recebimento ({methods.length})</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Formas de recebimento ({methods.length})</CardTitle>
+            </CardHeader>
             <CardContent>
               {loading ? (
                 <p className="text-sm text-muted-foreground text-center py-6">Carregando...</p>
@@ -1111,7 +1095,9 @@ export const AdminContasReceberTab = () => {
       {/* Dialog: receber parcela */}
       <Dialog open={!!openReceive} onOpenChange={(v) => !v && setOpenReceive(null)}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Registrar recebimento</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Registrar recebimento</DialogTitle>
+          </DialogHeader>
 
           {openReceive && (
             <div className="space-y-3">
@@ -1133,21 +1119,32 @@ export const AdminContasReceberTab = () => {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label>Valor recebido *</Label>
-                  <Input type="number" step="0.01" value={receiveForm.amount} onChange={(e) => setReceiveForm({ ...receiveForm, amount: e.target.value })} />
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={receiveForm.amount}
+                    onChange={(e) => setReceiveForm({ ...receiveForm, amount: e.target.value })}
+                  />
                 </div>
                 <div>
                   <Label>Data</Label>
-                  <Input type="date" value={receiveForm.received_at} onChange={(e) => setReceiveForm({ ...receiveForm, received_at: e.target.value })} />
+                  <Input
+                    type="date"
+                    value={receiveForm.received_at}
+                    onChange={(e) => setReceiveForm({ ...receiveForm, received_at: e.target.value })}
+                  />
                 </div>
               </div>
 
               <div>
                 <Label>Forma de recebimento</Label>
                 <Select value={receiveForm.payment_method_id} onValueChange={(v) => setReceiveForm({ ...receiveForm, payment_method_id: v })}>
-                  <SelectTrigger><SelectValue placeholder="(opcional)" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="(opcional)" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">(sem)</SelectItem>
-                    {methods.filter((m) => m.is_active).map((m) => (
+                    {methods.filter(m => m.is_active).map((m) => (
                       <SelectItem key={m.id} value={m.id}>
                         {m.name} ({PM_TYPE_LABEL[m.type]})
                       </SelectItem>

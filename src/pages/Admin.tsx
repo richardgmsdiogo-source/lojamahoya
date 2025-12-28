@@ -30,6 +30,12 @@ import { AdminConciliacoesTab } from "@/components/admin/financeiro/AdminConcili
 import { AdminDRETab } from "@/components/admin/financeiro/AdminDRETab";
 import { AdminBalancoTab } from "@/components/admin/financeiro/AdminBalancoTab";
 
+// ✅ páginas do grimório
+import { AdminXPTitulosTab } from "@/components/admin/grimorio/AdminXPTitulosTab";
+import { AdminHistoricoComprasTab } from "@/components/admin/grimorio/AdminHistoricoComprasTab";
+import { AdminConquistasTab } from "@/components/admin/grimorio/AdminConquistasTab";
+import { AdminBeneficiosTab } from "@/components/admin/grimorio/AdminBeneficiosTab";
+
 const Admin = () => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const location = useLocation();
@@ -84,6 +90,12 @@ const Admin = () => {
           <Route path="familias-olfativas" element={<AdminScentFamiliesTab />} />
           <Route path="d20" element={<AdminD20Tab />} />
           <Route path="relatos" element={<AdminTestimonialsTab />} />
+
+          {/* ✅ GRIMÓRIO */}
+          <Route path="xp-titulos" element={<AdminXPTitulosTab />} />
+          <Route path="historico-compras" element={<AdminHistoricoComprasTab />} />
+          <Route path="conquistas" element={<AdminConquistasTab />} />
+          <Route path="beneficios" element={<AdminBeneficiosTab />} />
 
           {/* fallback */}
           <Route path="*" element={<Navigate to="/admin" replace />} />

@@ -18,7 +18,6 @@ import NotFound from "./pages/NotFound";
 import Politicas from '@/pages/Politicas';
 import Termos from '@/pages/Termos';
 import Trocas from '@/pages/Trocas';
-import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -44,7 +43,6 @@ const App = () => (
               <Route path="/privacidade" element={<Politicas />} />
               <Route path="/termos" element={<Termos />} />
               <Route path="/trocas" element={<Trocas />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
             </Routes>
           </BrowserRouter>
         </TooltipProvider>

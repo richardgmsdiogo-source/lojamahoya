@@ -31,6 +31,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrencyBRL } from '@/lib/format';
 import { XPCard } from '@/components/account/XPCard';
+import { AchievementsCard } from '@/components/account/AchievementsCard';
+import { BenefitsCard } from '@/components/account/BenefitsCard';
 
 interface Address {
   id: string;
@@ -442,59 +444,14 @@ const MinhaConta = () => {
     }
   };
 
-  // ====== CONQUISTAS (Steam-like) ======
+  // ====== CONQUISTAS (calculado para passar para o componente) ======
   const totalOrders = orders.length;
+  const totalSpent = useMemo(() => orders.reduce((acc, o) => acc + (o.total || 0), 0), [orders]);
   const uniqueItems = useMemo(() => {
     const s = new Set<string>();
     orders.forEach((o) => o.order_items?.forEach((it) => s.add(it.product_name)));
     return s.size;
   }, [orders]);
-
-  const hasCritical = useMemo(() => d20Rolls.some((r) => r.roll_result === 20), [d20Rolls]);
-
-  const ACH_PURCHASES_TARGET = 5;
-  const ACH_UNIQUE_ITEMS_TARGET = 8;
-
-  const achievements = useMemo(() => {
-    const list = [
-      {
-        id: 'desbravador',
-        title: 'Desbravador',
-        description: 'Realizou sua 1ª compra',
-        progress: Math.min(totalOrders, 1),
-        target: 1,
-        unlocked: totalOrders >= 1,
-      },
-      {
-        id: 'critico',
-        title: '1º crítico',
-        description: 'Rolou 20 no D20',
-        progress: hasCritical ? 1 : 0,
-        target: 1,
-        unlocked: hasCritical,
-      },
-      {
-        id: 'colecionador',
-        title: 'Colecionador',
-        description: `Fez ${ACH_PURCHASES_TARGET}+ compras`,
-        progress: Math.min(totalOrders, ACH_PURCHASES_TARGET),
-        target: ACH_PURCHASES_TARGET,
-        unlocked: totalOrders >= ACH_PURCHASES_TARGET,
-      },
-      {
-        id: 'variedade',
-        title: 'Variedade Aromática',
-        description: `Comprou ${ACH_UNIQUE_ITEMS_TARGET}+ itens diferentes`,
-        progress: Math.min(uniqueItems, ACH_UNIQUE_ITEMS_TARGET),
-        target: ACH_UNIQUE_ITEMS_TARGET,
-        unlocked: uniqueItems >= ACH_UNIQUE_ITEMS_TARGET,
-      },
-    ];
-
-    return list;
-  }, [totalOrders, uniqueItems, hasCritical]);
-
-  const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
   const siteOrders = useMemo(() => orders.filter((o) => !isEncomenda(o)), [orders]);
   const encomendas = useMemo(() => orders.filter((o) => isEncomenda(o)), [orders]);
@@ -598,54 +555,20 @@ const MinhaConta = () => {
               </Card>
 
               {/* Conquistas */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="font-serif flex items-center gap-2">
-                    <Trophy className="h-5 w-5 text-primary" />
-                    Conquistas
-                    <span className="text-sm text-muted-foreground font-normal">
-                      ({unlockedCount}/{achievements.length})
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-3">
-                    {achievements.map((a) => (
-                      <div
-                        key={a.id}
-                        className={[
-                          'rounded-lg border p-3 transition',
-                          a.unlocked ? 'bg-card' : 'bg-muted/40 opacity-80 grayscale',
-                        ].join(' ')}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="font-serif font-medium truncate">{a.title}</p>
-                            <p className="text-xs text-muted-foreground">{a.description}</p>
-                          </div>
-                          <Badge variant="outline" className="shrink-0">
-                            {a.progress}/{a.target}
-                          </Badge>
-                        </div>
-                        <div className="mt-2 h-2 w-full rounded-full bg-border overflow-hidden">
-                          <div
-                            className="h-full bg-primary"
-                            style={{ width: `${Math.round((a.progress / a.target) * 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {!d20Loading && !d20Rolls.length && (
-                    <p className="mt-4 text-xs text-muted-foreground flex items-center gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      Toda jornada é feita de pequenos rituais. Obrigado por caminhar conosco.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              {user?.id && (
+                <AchievementsCard 
+                  userId={user.id} 
+                  totalOrders={totalOrders}
+                  totalSpent={totalSpent}
+                  uniqueItems={uniqueItems}
+                />
+              )}
             </div>
+
+            {/* Benefícios */}
+            {user?.id && (
+              <BenefitsCard userId={user.id} />
+            )}
           </TabsContent>
 
           {/* ===== REGISTROS (Pedidos + Encomendas) ===== */}
