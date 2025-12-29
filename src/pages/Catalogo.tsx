@@ -18,6 +18,7 @@ interface Category {
   id: string;
   name: string;
   slug: string;
+  is_active: boolean;
 }
 
 interface ScentFamily {
@@ -65,12 +66,15 @@ const Catalogo = () => {
           .from('products')
           .select(`
             *,
-            category:categories(id, name, slug),
+            category:categories(id, name, slug, is_active),
             scent_family:scent_families(id, name, slug)
           `)
           .eq('is_active', true)
           .order('name'),
-        supabase.from('categories').select('*').order('name'),
+        supabase
+          .from('categories')
+          .select('id, name, slug, is_active')
+          .eq('is_active', true),
         supabase.from('scent_families').select('*').order('name'),
         supabase.rpc('get_catalog_availability', { p_only_active: true })
       ]);
@@ -82,13 +86,23 @@ const Catalogo = () => {
       });
       
       // Transform products to include stock availability
+
       const transformedProducts: Product[] = (prods || []).map((p: any) => ({
         ...p,
         inStock: stockMap.get(p.id) ?? false,
       }));
+
+      const onlyActiveCategoryProducts = transformedProducts.filter((p) => {
+        if (!p.category_id) return true; // mantém sem categoria (ajuste se quiser remover)
+        return p.category?.is_active === true;
+      });
+
+      setProducts(onlyActiveCategoryProducts);
       
       setProducts(transformedProducts);
       setCategories(cats || []);
+      const activeCatIds = new Set((cats || []).map((c: any) => c.id));
+      setSelectedCategories((prev) => prev.filter((id) => activeCatIds.has(id)));
       setScentFamilies(scents || []);
       setIsLoading(false);
     };
@@ -323,7 +337,7 @@ const ProductCardDB = ({ product }: { product: Product }) => {
           )}
         </div>
         
-        {product.category && (
+        {product.category?.is_active && (
           <span className="absolute top-3 right-3 bg-primary/90 text-primary-foreground text-xs px-2 py-1 rounded font-serif">
             {product.category.name}
           </span>

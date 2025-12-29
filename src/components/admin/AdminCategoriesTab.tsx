@@ -343,7 +343,7 @@ export const AdminCategoriesTab = () => {
                       {cat.emoji || '🏷️'}
                     </div>
                   )}
-
+                  
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{cat.name}</p>
