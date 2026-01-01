@@ -13,9 +13,12 @@ import { useToast } from '@/hooks/use-toast';
 const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [registerData, setRegisterData] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
-  const { login, register, isAuthenticated, isLoading } = useAuth();
+  const { login, register, resetPassword, isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -136,7 +139,64 @@ const Auth = () => {
                     <Button type="submit" className="w-full font-serif" disabled={isSubmitting}>
                       {isSubmitting ? 'Entrando...' : 'Entrar'}
                     </Button>
+                    <Button 
+                      type="button" 
+                      variant="link" 
+                      className="w-full text-muted-foreground font-serif text-sm"
+                      onClick={() => {
+                        setForgotEmail(loginData.email);
+                        setShowForgotPassword(true);
+                      }}
+                    >
+                      Esqueceu sua senha?
+                    </Button>
                   </form>
+                  
+                  {showForgotPassword && (
+                    <div className="mt-6 pt-6 border-t border-border">
+                      <h3 className="font-serif text-lg mb-3">Recuperar senha</h3>
+                      <form 
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          setIsSendingReset(true);
+                          const result = await resetPassword(forgotEmail);
+                          if (result.success) {
+                            toast({ title: 'E-mail enviado!', description: 'Verifique sua caixa de entrada para redefinir a senha.' });
+                            setShowForgotPassword(false);
+                          } else {
+                            toast({ title: 'Erro', description: result.error || 'Não foi possível enviar o e-mail.', variant: 'destructive' });
+                          }
+                          setIsSendingReset(false);
+                        }}
+                        className="space-y-3"
+                      >
+                        <div>
+                          <Label className="font-serif text-sm">Digite seu e-mail</Label>
+                          <Input 
+                            type="email" 
+                            value={forgotEmail} 
+                            onChange={(e) => setForgotEmail(e.target.value)} 
+                            required 
+                            disabled={isSendingReset}
+                            placeholder="seu@email.com"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="flex-1 font-serif"
+                            onClick={() => setShowForgotPassword(false)}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button type="submit" className="flex-1 font-serif" disabled={isSendingReset}>
+                            {isSendingReset ? 'Enviando...' : 'Enviar link'}
+                          </Button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
                 </CardContent>
               </TabsContent>
 
