@@ -39,6 +39,7 @@ export const CategoriesSection = () => {
       const { data, error } = await supabase
         .from('categories')
         .select('id,name,slug,description,image_url,emoji')
+        .eq('is_active', true)
         .order('name');
 
       if (!isMounted) return;

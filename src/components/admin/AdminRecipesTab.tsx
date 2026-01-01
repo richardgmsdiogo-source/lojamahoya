@@ -35,14 +35,13 @@ type RecipeItemRow = {
     id: string;
     name: string;
     unit: MeasurementUnit;
-    avg_cost_per_unit: number | null;
+    cost_per_unit: number;
   } | null;
 };
 
 type RecipeRow = {
   id: string;
   product_id: string;
-  name: string | null;   // <<< aqui
   notes: string | null;
   version: number;
   total_cost: number | null; // snapshot na criação/última edição
@@ -82,12 +81,10 @@ export const AdminRecipesTab = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [editingRecipe, setEditingRecipe] = useState<RecipeRow | null>(null);
-
-  const [duplicatingFrom, setDuplicatingFrom] = useState<RecipeRow | null>(null);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   const [formData, setFormData] = useState({
     product_id: '',
-    name: '',      // <<< novo
     notes: '',
     items: [] as Array<{
       raw_material_id: string;
@@ -106,7 +103,6 @@ export const AdminRecipesTab = () => {
             `
             id,
             product_id,
-            name,
             notes,
             version,
             total_cost,
@@ -124,7 +120,7 @@ export const AdminRecipesTab = () => {
                 id,
                 name,
                 unit,
-                avg_cost_per_unit
+                cost_per_unit
               )
             )
           `
@@ -135,7 +131,7 @@ export const AdminRecipesTab = () => {
 
         supabase
           .from('raw_materials')
-          .select('id, name, unit, avg_cost_per_unit')
+          .select('id, name, unit, cost_per_unit')
           .eq('is_active', true)
           .order('name'),
       ]);
@@ -151,7 +147,7 @@ export const AdminRecipesTab = () => {
           id: m.id,
           name: m.name,
           unit: m.unit,
-          avg_cost_per_unit: safeNum(m.avg_cost_per_unit),
+          avg_cost_per_unit: safeNum(m.cost_per_unit),
         }))
       );
     } catch (err: any) {
@@ -175,16 +171,30 @@ export const AdminRecipesTab = () => {
   }, []);
 
   const resetForm = () => {
-    setFormData({ product_id: '', name: '', notes: '', items: [] });
+    setFormData({ product_id: '', notes: '', items: [] });
     setEditingRecipe(null);
-    setDuplicatingFrom(null);
+    setIsDuplicating(false);
+  };
+
+  const openDuplicate = (recipe: RecipeRow) => {
+    setEditingRecipe(null);
+    setIsDuplicating(true);
+    setFormData({
+      product_id: '', // deixa vazio para selecionar novo produto
+      notes: recipe.notes || '',
+      items: (recipe.recipe_items || []).map((it) => ({
+        raw_material_id: it.raw_material_id,
+        quantity: String(it.quantity ?? ''),
+        unit: it.unit,
+      })),
+    });
+    setIsOpen(true);
   };
 
   const openEdit = (recipe: RecipeRow) => {
     setEditingRecipe(recipe);
     setFormData({
       product_id: recipe.product_id,
-      name: recipe.name || '',          // <<< faltava
       notes: recipe.notes || '',
       items: (recipe.recipe_items || []).map((it) => ({
         raw_material_id: it.raw_material_id,
@@ -194,26 +204,6 @@ export const AdminRecipesTab = () => {
     });
     setIsOpen(true);
   };
-
-
-  const openDuplicate = (recipe: RecipeRow) => {
-    setEditingRecipe(null);
-    setDuplicatingFrom(recipe);
-
-    setFormData({
-      product_id: recipe.product_id, 
-      name: `Cópia de ${recipe.name ?? `Receita ${recipe.version}`}`, // você edita
-      notes: recipe.notes || '',
-      items: (recipe.recipe_items || []).map((it) => ({
-        raw_material_id: it.raw_material_id,
-        quantity: String(it.quantity ?? ''),
-        unit: it.unit,
-      })),
-    });
-
-    setIsOpen(true);
-  };
-
 
   const addItem = () => {
     setFormData((prev) => ({
@@ -279,11 +269,6 @@ export const AdminRecipesTab = () => {
       }
     }
 
-    toast({
-      title: duplicatingFrom ? 'Duplicado' : 'Criado',
-      description: duplicatingFrom ? 'Receita duplicada com sucesso.' : 'Receita criada com sucesso.',
-    });
-
     const { data: auth } = await supabase.auth.getUser();
     const userId = auth?.user?.id ?? null;
 
@@ -297,7 +282,6 @@ export const AdminRecipesTab = () => {
         const upRes = await supabase
           .from('recipes')
           .update({
-            name: formData.name.trim(),        // <<< aqui
             notes: formData.notes.trim() ? formData.notes.trim() : null,
             total_cost: totalCostLive,
           })
@@ -341,7 +325,6 @@ export const AdminRecipesTab = () => {
           .from('recipes')
           .insert({
             product_id: formData.product_id,
-            name: formData.name.trim(),        // <<< aqui
             notes: formData.notes.trim() ? formData.notes.trim() : null,
             version: nextVersion,
             total_cost: totalCostLive, // snapshot
@@ -434,7 +417,7 @@ export const AdminRecipesTab = () => {
   const calcRecipeLiveCost = (r: RecipeRow) => {
     const items = r.recipe_items || [];
     return items.reduce((acc, it) => {
-      const matAvg = safeNum(it.raw_materials?.avg_cost_per_unit);
+      const matAvg = safeNum(it.raw_materials?.cost_per_unit);
       const baseQty = toBaseQty(safeNum(it.quantity), it.unit);
       return acc + baseQty * matAvg;
     }, 0);
@@ -469,20 +452,19 @@ export const AdminRecipesTab = () => {
           </DialogTrigger>
 
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingRecipe ? 'Editar' : duplicatingFrom ? 'Duplicar' : 'Nova'} Receita
-              </DialogTitle>
-            </DialogHeader>
-            
+          <DialogHeader>
+            <DialogTitle>
+              {editingRecipe ? 'Editar' : isDuplicating ? 'Duplicar' : 'Nova'} Receita
+            </DialogTitle>
+          </DialogHeader>
+
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* PRODUTO */}
               <div>
-                <Label>Produto *</Label>
+                <Label>Produto * {isDuplicating && <span className="text-muted-foreground text-sm">(selecione o produto destino)</span>}</Label>
                 <Select
                   value={formData.product_id}
                   onValueChange={(v) => setFormData((p) => ({ ...p, product_id: v }))}
-                  disabled={!!editingRecipe} // (se você quiser permitir trocar no duplicar)
+                  disabled={!!editingRecipe}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o produto" />
@@ -497,18 +479,6 @@ export const AdminRecipesTab = () => {
                 </Select>
               </div>
 
-              {/* NOME DA RECEITA (AQUI!) */}
-              <div>
-                <Label>Nome da Receita *</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="Ex: Home Spray - Lavanda"
-                  required
-                />
-              </div>
-
-              {/* OBSERVAÇÕES */}
               <div>
                 <Label>Observações</Label>
                 <Textarea
@@ -605,10 +575,11 @@ export const AdminRecipesTab = () => {
 
               <div className="p-4 bg-primary/10 rounded-lg">
                 <p className="text-lg font-bold text-primary">Custo Total (médio atual): {formatCurrencyBRL(totalCostLive)}</p>
+                <p className="text-sm text-muted-foreground">Calculado pelo avg_cost_per_unit atual das matérias-primas</p>
               </div>
 
               <Button type="submit" className="w-full" disabled={!formData.product_id || formData.items.length === 0}>
-                {editingRecipe ? 'Atualizar' : duplicatingFrom ? 'Duplicar' : 'Criar'} Receita
+                {editingRecipe ? 'Atualizar' : isDuplicating ? 'Duplicar' : 'Criar'} Receita
               </Button>
             </form>
           </DialogContent>
@@ -647,7 +618,7 @@ export const AdminRecipesTab = () => {
                       <div className="flex items-start justify-between">
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="font-medium">{r.name || `Receita ${r.version}`}</span>
+                            <span className="font-medium">Versão {r.version}</span>
                             {r.is_active && <Badge variant="default">Ativa</Badge>}
                           </div>
 
@@ -668,24 +639,22 @@ export const AdminRecipesTab = () => {
                             ))}
                           </div>
                         </div>
+
                         <div className="flex gap-2">
                           {!r.is_active && (
                             <Button variant="outline" size="icon" onClick={() => setActive(r)} title="Tornar ativa">
                               <Check className="h-4 w-4" />
                             </Button>
                           )}
-
-                          <Button variant="outline" size="icon" onClick={() => openDuplicate(r)} title="Duplicar">
-                            <Copy className="h-4 w-4" />
-                          </Button>
-
-                          <Button variant="outline" size="icon" onClick={() => openEdit(r)} title="Editar">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-
-                          <Button variant="destructive" size="icon" onClick={() => deleteRecipe(r.id)} title="Excluir">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                                          <Button variant="outline" size="icon" onClick={() => openDuplicate(r)} title="Duplicar">
+                                            <Copy className="h-4 w-4" />
+                                          </Button>
+                                          <Button variant="outline" size="icon" onClick={() => openEdit(r)} title="Editar">
+                                            <Pencil className="h-4 w-4" />
+                                          </Button>
+                                          <Button variant="destructive" size="icon" onClick={() => deleteRecipe(r.id)} title="Excluir">
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
                         </div>
                       </div>
                     </div>
