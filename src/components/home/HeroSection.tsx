@@ -2,8 +2,14 @@ import { Link } from 'react-router-dom';
 import { Sparkles, Leaf } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import mahoyaLogo from '@/assets/mahoya-logo.png';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const HeroSection = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  const accountHref = isAuthenticated ? '/minha-conta' : '/auth';
+  const accountLabel = isAuthenticated ? 'Área do Aventureiro' : 'Entrar / Cadastrar';
+
   return (
     <section className="relative overflow-hidden py-12 md:py-16 lg:py-20">
       {/* Decorative elements */}
@@ -25,15 +31,15 @@ export const HeroSection = () => {
       <div className="container relative">
         <div className="mx-auto max-w-3xl text-center">
           {/* Logo - increased size */}
-          <img 
-            src={mahoyaLogo} 
-            alt="Mahoya - Magia Feita a Dois" 
+          <img
+            src={mahoyaLogo}
+            alt="Mahoya - Magia Feita a Dois"
             className="mx-auto mb-6 h-56 md:h-72 lg:h-96 w-auto max-w-[350px] md:max-w-[450px] lg:max-w-[550px] animate-fade-in object-contain"
           />
-          
+
           {/* Subtitle - reduced spacing and size */}
           <p className="font-serif text-base md:text-lg text-muted-foreground mb-6 max-w-xl mx-auto leading-normal tracking-normal animate-fade-in">
-            Descubra nossa coleção artesanal de aromatizantes, velas e itens de bem-estar. 
+            Descubra nossa coleção artesanal de aromatizantes, velas e itens de bem-estar.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center animate-fade-in">
@@ -43,10 +49,18 @@ export const HeroSection = () => {
                 Ver Coleção
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="font-serif text-sm border-accent text-accent hover:bg-accent hover:text-accent-foreground">
-              <Link to="/auth">
+
+            {/* ✅ Botão inteligente: muda conforme login */}
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="font-serif text-sm border-accent text-accent hover:bg-accent hover:text-accent-foreground"
+              disabled={isLoading}
+            >
+              <Link to={accountHref}>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Entrar / Cadastrar
+                {isLoading ? 'Carregando...' : accountLabel}
               </Link>
             </Button>
           </div>
