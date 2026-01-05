@@ -1,0 +1,12 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # não reescreve arquivos/pastas que existam de verdade
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # tudo o resto vai pro index.html (React Router)
+  RewriteRule . /index.html [L]
+</IfModule>
