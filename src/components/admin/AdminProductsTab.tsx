@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, EyeOff, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,13 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrencyBRL } from '@/lib/format';
+import { ProductImageUploader } from './ProductImageUploader';
+
+interface ProductImage {
+  id: string;
+  image_url: string;
+  display_order: number;
+}
 
 interface Product {
   id: string;
@@ -44,6 +51,9 @@ export const AdminProductsTab = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [imageDialogOpen, setImageDialogOpen] = useState(false);
+  const [selectedProductForImages, setSelectedProductForImages] = useState<Product | null>(null);
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -202,6 +212,27 @@ export const AdminProductsTab = () => {
     if (!error) {
       fetchData();
     }
+  };
+
+  const openImageManager = async (prod: Product) => {
+    setSelectedProductForImages(prod);
+    const { data } = await supabase
+      .from('product_images')
+      .select('*')
+      .eq('product_id', prod.id)
+      .order('display_order');
+    setProductImages(data || []);
+    setImageDialogOpen(true);
+  };
+
+  const refreshProductImages = async () => {
+    if (!selectedProductForImages) return;
+    const { data } = await supabase
+      .from('product_images')
+      .select('*')
+      .eq('product_id', selectedProductForImages.id)
+      .order('display_order');
+    setProductImages(data || []);
   };
 
   return (
@@ -391,6 +422,14 @@ export const AdminProductsTab = () => {
                   <Button 
                     variant="outline" 
                     size="icon"
+                    onClick={() => openImageManager(prod)}
+                    title="Gerenciar Imagens"
+                  >
+                    <Image className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon"
                     onClick={() => toggleActive(prod)}
                     title={prod.is_active ? 'Desativar' : 'Ativar'}
                   >
@@ -407,6 +446,24 @@ export const AdminProductsTab = () => {
             ))}
           </div>
         )}
+
+        {/* Image Manager Dialog */}
+        <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                Imagens: {selectedProductForImages?.name}
+              </DialogTitle>
+            </DialogHeader>
+            {selectedProductForImages && (
+              <ProductImageUploader
+                productId={selectedProductForImages.id}
+                images={productImages}
+                onImagesChange={refreshProductImages}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
