@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Filter, Loader2, ShoppingBag, AlertCircle, Percent } from 'lucide-react';
+import { Filter, Loader2, ShoppingBag, AlertCircle, Percent, Eye } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -13,6 +13,8 @@ import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrencyBRL } from '@/lib/format';
 import { Product as CartProduct, ProductCategory } from '@/types';
+import { ProductModalDB } from '@/components/products/ProductModalDB';
+import { ProductImageCarousel } from '@/components/products/ProductImageCarousel';
 
 interface Category {
   id: string;
@@ -237,6 +239,7 @@ const Catalogo = () => {
 
 // Componente de card adaptado para produtos do banco
 const ProductCardDB = ({ product }: { product: Product }) => {
+  const [showModal, setShowModal] = useState(false);
   const { addItem } = useCart();
   const { toast } = useToast();
 
@@ -289,82 +292,102 @@ const ProductCardDB = ({ product }: { product: Product }) => {
   };
 
   return (
-    <Card className={`group overflow-hidden bg-card border-border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${isOutOfStock ? 'opacity-75' : ''}`}>
-      <div className="relative aspect-square bg-secondary/30 overflow-hidden">
-        <img
-          src={product.image_url || '/placeholder.svg'}
-          alt={product.name}
-          className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 ${isOutOfStock ? 'grayscale' : ''}`}
-        />
-        
-        {/* Badges container */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1">
-          {/* Esgotado badge */}
-          {isOutOfStock && (
-            <Badge variant="destructive" className="gap-1 font-serif">
-              <AlertCircle className="h-3 w-3" />
-              Esgotado
-            </Badge>
-          )}
+    <>
+      <Card className={`group overflow-hidden bg-card border-border transition-all duration-300 hover:shadow-lg hover:-translate-y-1 ${isOutOfStock ? 'opacity-75' : ''}`}>
+        <div className={`relative ${isOutOfStock ? 'grayscale' : ''}`}>
+          <ProductImageCarousel
+            productId={product.id}
+            fallbackImage={product.image_url || undefined}
+          />
           
-          {/* Desconto badge */}
-          {isOnSale && !isOutOfStock && (
-            <Badge className="gap-1 font-serif bg-green-600 hover:bg-green-700">
-              <Percent className="h-3 w-3" />
-              -{discountPercent}%
-            </Badge>
-          )}
+          {/* View button */}
+          <Button
+            variant="secondary"
+            size="icon"
+            className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={() => setShowModal(true)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
           
-          {/* Custom badge from product */}
-          {product.badge && !isOutOfStock && !isOnSale && (
-            <Badge className="font-serif bg-accent/90 text-accent-foreground">
-              {product.badge}
-            </Badge>
-          )}
-        </div>
-        
-        {product.category && (
-          <span className="absolute top-3 right-3 bg-primary/90 text-primary-foreground text-xs px-2 py-1 rounded font-serif">
-            {product.category.name}
-          </span>
-        )}
-      </div>
-
-      <CardContent className="p-4 md:p-6">
-        <h3 className="font-script text-xl md:text-2xl text-primary mb-1">
-          {product.name}
-        </h3>
-        
-        {product.description && (
-          <p className="font-serif text-sm text-muted-foreground mb-3 line-clamp-2">
-            {product.description}
-          </p>
-        )}
-
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <span className="font-serif text-lg font-semibold text-primary">
-              {formatCurrencyBRL(product.price)}
-            </span>
-            {isOnSale && (
-              <span className="font-serif text-sm text-muted-foreground line-through ml-2">
-                {formatCurrencyBRL(product.original_price!)}
-              </span>
+          {/* Badges container */}
+          <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
+            {/* Category badge */}
+            {product.category && (
+              <Badge className="font-serif bg-primary/90 text-primary-foreground">
+                {product.category.name}
+              </Badge>
+            )}
+            
+            {/* Esgotado badge */}
+            {isOutOfStock && (
+              <Badge variant="destructive" className="gap-1 font-serif">
+                <AlertCircle className="h-3 w-3" />
+                Esgotado
+              </Badge>
+            )}
+            
+            {/* Desconto badge */}
+            {isOnSale && !isOutOfStock && (
+              <Badge className="gap-1 font-serif bg-green-600 hover:bg-green-700">
+                <Percent className="h-3 w-3" />
+                -{discountPercent}%
+              </Badge>
+            )}
+            
+            {/* Custom badge from product */}
+            {product.badge && !isOutOfStock && !isOnSale && (
+              <Badge className="font-serif bg-accent/90 text-accent-foreground">
+                {product.badge}
+              </Badge>
             )}
           </div>
-          <Button 
-            size="sm" 
-            onClick={handleAddToCart} 
-            className="font-serif"
-            disabled={isOutOfStock}
-            variant={isOutOfStock ? 'secondary' : 'default'}
-          >
-            <ShoppingBag className="mr-2 h-4 w-4" />
-            {isOutOfStock ? 'Indisponível' : 'Adicionar'}
-          </Button>
         </div>
-      </CardContent>
-    </Card>
+
+        <CardContent className="p-4 md:p-6">
+          <h3 className="font-script text-xl md:text-2xl text-primary mb-1">
+            {product.name}
+          </h3>
+          
+          {product.description && (
+            <p className="font-serif text-sm text-muted-foreground mb-3 line-clamp-2">
+              {product.description}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <span className="font-serif text-lg font-semibold text-primary">
+                {formatCurrencyBRL(product.price)}
+              </span>
+              {isOnSale && (
+                <span className="font-serif text-sm text-muted-foreground line-through ml-2">
+                  {formatCurrencyBRL(product.original_price!)}
+                </span>
+              )}
+            </div>
+            <Button 
+              size="sm" 
+              onClick={handleAddToCart} 
+              className="font-serif"
+              disabled={isOutOfStock}
+              variant={isOutOfStock ? 'secondary' : 'default'}
+            >
+              <ShoppingBag className="mr-2 h-4 w-4" />
+              {isOutOfStock ? 'Indisponível' : 'Adicionar'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <ProductModalDB
+        product={product}
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onAddToCart={handleAddToCart}
+        isOutOfStock={isOutOfStock}
+      />
+    </>
   );
 };
 
